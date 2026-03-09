@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function RequireSuperAdmin({ children }: Props) {
-  const { role } = useAdminAuth();
+  const { role } = useAdminAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 

@@ -83,7 +83,7 @@ function setupPassport() {
                     if (admin.password_hash === 'PENDING_SETUP') {
                         await query(
                             `UPDATE admin_users
-                             SET password_hash = NULL, setup_token = NULL, setup_token_expiry = NULL,
+                             SET password_hash = 'GOOGLE_AUTH', setup_token = NULL, setup_token_expiry = NULL,
                                  google_id = $1, updated_at = NOW()
                              WHERE id = $2`,
                             [googleId, admin.id]

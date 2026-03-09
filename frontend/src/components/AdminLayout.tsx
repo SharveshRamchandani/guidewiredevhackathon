@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
-import { useAdminAuth, isSuperAdmin } from "@/hooks/useAdminAuth";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
 
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
@@ -31,8 +31,10 @@ const superAdminItems = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { role, name } = useAdminAuth();
-  const showSuperAdmin = isSuperAdmin(role);
+  const { admin, isSuperAdmin, logout } = useAdminAuthStore();
+  const showSuperAdmin = isSuperAdmin();
+  const name = admin?.name || "Admin User";
+  const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || (showSuperAdmin ? "SA" : "AD");
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,13 +53,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-primary text-primary-foreground">{showSuperAdmin ? "SA" : "AD"}</AvatarFallback></Avatar>
+                <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback></Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem disabled className="text-xs text-muted-foreground">{name}</DropdownMenuItem>
               <DropdownMenuItem asChild><Link to="/admin/profile">Profile</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link to="/admin/login">Logout</Link></DropdownMenuItem>
+              <DropdownMenuItem onClick={() => logout()} className="cursor-pointer">Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

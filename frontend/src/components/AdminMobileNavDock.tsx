@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Users, ShieldAlert, Settings, BarChart3, FileText, AlertTriangle, Zap, Clock, Building2, PlusCircle, Activity } from "lucide-react";
 import { LucideIcon } from "lucide-react";
-import { useAdminAuth, isSuperAdmin } from "@/hooks/useAdminAuth";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
 
 interface SubItem {
   label: string;
@@ -74,10 +74,10 @@ const dockGroups: DockGroup[] = [
 export function AdminMobileNavDock() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { role } = useAdminAuth();
+  const { isSuperAdmin } = useAdminAuthStore();
   const [openGroup, setOpenGroup] = useState<number | null>(null);
 
-  const visibleGroups = dockGroups.filter((g) => !g.superAdminOnly || isSuperAdmin(role));
+  const visibleGroups = dockGroups.filter((g) => !g.superAdminOnly || isSuperAdmin());
 
   const handleGroupClick = (index: number) => {
     setOpenGroup(openGroup === index ? null : index);
