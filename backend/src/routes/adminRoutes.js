@@ -1,21 +1,15 @@
 const router = require('express').Router();
 const { body, param } = require('express-validator');
 const ctrl = require('../controllers/adminController');
-const { authenticateAdmin } = require('../middleware/auth');
+const { requireAdminAuth } = require('../middleware/authMiddleware');
 const { validate } = require('../middleware/validate');
 
-// ─── Public (no auth) ─────────────────────────────────────────────────────────
-router.post('/auth/login',
-  [body('email').isEmail().withMessage('Valid email required'),
-   body('password').notEmpty().withMessage('Password required')],
-  validate, ctrl.login
-);
-
 // ─── Protected (admin JWT) ────────────────────────────────────────────────────
-router.use(authenticateAdmin);
+// NOTE: Login is handled by /api/admin/auth/* (adminAuthRoutes) — do NOT add /auth/login here.
+router.use(requireAdminAuth);
 
 router.post('/auth/logout', ctrl.logout);
-router.get('/dashboard',    ctrl.dashboard);
+router.get('/dashboard', ctrl.dashboard);
 
 // Workers
 router.get('/workers', ctrl.getWorkers);
@@ -51,7 +45,7 @@ router.get('/events', ctrl.getEvents);
 router.get('/analytics', ctrl.getAnalytics);
 
 // System config (trigger engine toggle)
-router.get('/config',   ctrl.getConfig);
+router.get('/config', ctrl.getConfig);
 router.patch('/config', ctrl.updateConfig);
 
 module.exports = router;
