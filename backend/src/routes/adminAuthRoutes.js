@@ -50,21 +50,20 @@ router.post('/setup', asyncHandler(async (req, res) => {
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-router.get(
-    '/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: '/admin/login?error=google_failed' }),
-    (req, res) => {
-        if (!req.user || !req.user.token) {
-            return res.redirect('/admin/login?error=google_failed');
+router.get('/google/callback', (req, res, next) => {
+    passport.authenticate('google', { session: false }, (err, user, info) => {
+        const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8080';
+
+        if (err || !user || !user.token) {
+            if (info?.message === 'inactive') {
+                return res.redirect(`${FRONTEND_URL}/not-authorized`);
+            }
+            return res.redirect(`${FRONTEND_URL}/admin/login?error=google_failed`);
         }
 
-        const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-        // Only pass the JWT token — frontend decodes admin info from the payload directly.
-        // This avoids URL truncation issues from embedding large JSON admin objects in the URL.
-        const redirectUrl = `${FRONTEND_URL}/admin/oauth/callback?token=${encodeURIComponent(req.user.token)}`;
+        const redirectUrl = `${FRONTEND_URL}/admin/oauth/callback?token=${encodeURIComponent(user.token)}`;
         res.redirect(redirectUrl);
-    }
-);
+    })(req, res, next);
+});
 
 module.exports = router;

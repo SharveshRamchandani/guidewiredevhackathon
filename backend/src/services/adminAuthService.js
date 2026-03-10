@@ -229,8 +229,12 @@ async function loginAdmin(email, password) {
     const hashToCompare = (foundUser && !isPendingSetup) ? foundUser.password_hash : DUMMY_HASH;
     const passwordMatch = await bcrypt.compare(password, hashToCompare);
 
-    if (!foundUser || !foundUser.active) {
+    if (!foundUser) {
         throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password.', 401);
+    }
+
+    if (!foundUser.active) {
+        throw new AppError('INACTIVE_ACCOUNT', 'Your admin account has been deactivated.', 403);
     }
 
     if (isPendingSetup) {
