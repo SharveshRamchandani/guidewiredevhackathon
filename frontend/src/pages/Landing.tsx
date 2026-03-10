@@ -38,8 +38,8 @@ const Landing = () => {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Link to="/login"><Button variant="outline">Login</Button></Link>
-            <Link to="/register"><Button>Get Protected</Button></Link>
+            <Link to="/login"><Button variant="ghost">Login</Button></Link>
+            <Link to="/register/phone"><Button>Get Protected</Button></Link>
           </div>
         </div>
       </nav>
@@ -58,7 +58,7 @@ const Landing = () => {
           Claims trigger automatically. Payouts hit your UPI in hours.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-          <Link to="/register">
+          <Link to="/register/phone">
             <Button size="lg" className="text-base px-8 animate-pulse-glow">
               Get Protected <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -176,7 +176,14 @@ const Landing = () => {
               <a href="#" className="hover:text-foreground transition-colors">Terms</a>
               <a href="#" className="hover:text-foreground transition-colors">Contact</a>
             </div>
-            <p className="text-xs text-muted-foreground">© 2026 GigShield. All rights reserved.</p>
+            <div className="flex items-center gap-4">
+              <p className="text-xs text-muted-foreground">© 2026 GigShield. All rights reserved.</p>
+              <Link to="/admin/login">
+                <Button variant="link" size="sm" className="text-muted-foreground text-xs h-auto p-0">
+                  Admin Login
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
