@@ -2,6 +2,11 @@
  * Seed Script — Super Admin
  * Run once: npm run seed:super-admin
  * Safe to run multiple times (idempotent).
+ *
+ * Reads credentials from .env:
+ *   SUPER_ADMIN_EMAIL    (default: superadmin@gigshield.in)
+ *   SUPER_ADMIN_PASSWORD (default: GigShield@SuperAdmin#2026)
+ *   SUPER_ADMIN_NAME     (default: GigShield Platform Owner)
  */
 
 const path = require('path');

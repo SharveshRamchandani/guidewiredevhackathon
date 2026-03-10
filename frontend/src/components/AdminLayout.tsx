@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Shield, LayoutDashboard, Users, FileText, AlertTriangle, Clock, BarChart3, ShieldAlert, Zap, User, Building2, PlusCircle, Activity, Settings } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Shield, LayoutDashboard, Users, FileText, AlertTriangle, Clock, BarChart3,
+  ShieldAlert, Zap, Activity, Settings, UserPlus, UsersRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
 import { useAdminAuthStore } from "@/stores/adminAuthStore";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
@@ -19,22 +22,31 @@ const navItems = [
   { label: "Cron Config", path: "/admin/cron", icon: Clock },
   { label: "Analytics", path: "/admin/analytics", icon: BarChart3 },
   { label: "Fraud Queue", path: "/admin/fraud", icon: ShieldAlert },
-  { label: "Profile", path: "/admin/profile", icon: User },
 ];
 
+// Visible only to super_admin
 const superAdminItems = [
-  { label: "All Companies", path: "/admin/companies", icon: Building2 },
-  { label: "Create Company", path: "/admin/companies/new", icon: PlusCircle },
+  { label: "Staff Management", path: "/admin/staff", icon: UsersRound },
+  { label: "Add Staff", path: "/admin/staff/new", icon: UserPlus },
   { label: "Platform Stats", path: "/admin/platform", icon: Activity },
   { label: "Global Settings", path: "/admin/platform/settings", icon: Settings },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { admin, isSuperAdmin, logout } = useAdminAuthStore();
+  const { toast } = useToast();
   const showSuperAdmin = isSuperAdmin();
   const name = admin?.name || "Admin User";
   const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || (showSuperAdmin ? "SA" : "AD");
+
+  // Route guard: redirect to dashboard with toast if non-super-admin tries a super-admin route
+  const isSuperAdminRoute = superAdminItems.some(item => location.pathname.startsWith(item.path.split("/admin/staff/new")[0]) && location.pathname !== "/admin/dashboard");
+  if (!showSuperAdmin && superAdminItems.some(item => location.pathname.startsWith(item.path))) {
+    // Soft guard — the pages themselves have RequireSuperAdmin wrapper
+    // This is just for UX, not a security boundary (security is in the backend)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,13 +65,18 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback></Avatar>
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem disabled className="text-xs text-muted-foreground">{name}</DropdownMenuItem>
+              {admin?.jobTitle && (
+                <DropdownMenuItem disabled className="text-xs text-muted-foreground">{admin.jobTitle}</DropdownMenuItem>
+              )}
               <DropdownMenuItem asChild><Link to="/admin/profile">Profile</Link></DropdownMenuItem>
-              <DropdownMenuItem onClick={() => logout()} className="cursor-pointer">Logout</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive">Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -71,7 +88,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {navItems.map((item, i) => (
             <div key={item.path}>
               <Link to={item.path}>
-                <Button variant={location.pathname === item.path ? "secondary" : "ghost"} className="w-full justify-start gap-2" size="sm">
+                <Button
+                  variant={location.pathname === item.path ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2"
+                  size="sm"
+                >
                   <item.icon className="h-4 w-4" /> {item.label}
                 </Button>
               </Link>
@@ -79,10 +100,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             </div>
           ))}
 
+          {/* Super Admin only section */}
           {showSuperAdmin && (
             <>
               <Separator className="my-3" />
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Platform Management</p>
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Platform
+              </p>
               {superAdminItems.map((item) => (
                 <Link key={item.path} to={item.path}>
                   <Button

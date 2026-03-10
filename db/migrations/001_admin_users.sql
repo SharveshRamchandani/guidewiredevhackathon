@@ -1,9 +1,13 @@
 -- ============================================================
 -- Migration 001 — admin_users
--- GigShield multi-tenant admin table
+-- GigShield internal staff table (no multi-tenancy)
 -- ============================================================
 
-CREATE TYPE IF NOT EXISTS admin_role AS ENUM ('super_admin', 'admin');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_role') THEN
+        CREATE TYPE admin_role AS ENUM ('super_admin', 'admin');
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS admin_users (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -11,13 +15,11 @@ CREATE TABLE IF NOT EXISTS admin_users (
   email                 VARCHAR(150) UNIQUE NOT NULL,
   password_hash         VARCHAR(255) NOT NULL,
   role                  admin_role NOT NULL DEFAULT 'admin',
-  company_name          VARCHAR(200),
-  company_reg_number    VARCHAR(100),
-  registration_code     VARCHAR(20) UNIQUE,
-  totp_secret           VARCHAR(255),
-  totp_enabled          BOOLEAN DEFAULT false,
+  job_title             VARCHAR(100),
   setup_token           VARCHAR(255),
   setup_token_expiry    TIMESTAMPTZ,
+  totp_secret           VARCHAR(255),
+  totp_enabled          BOOLEAN DEFAULT false,
   active                BOOLEAN DEFAULT true,
   last_login            TIMESTAMPTZ,
   created_by            UUID REFERENCES admin_users(id) ON DELETE SET NULL,
@@ -26,7 +28,6 @@ CREATE TABLE IF NOT EXISTS admin_users (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_admin_users_email     ON admin_users(email);
-CREATE INDEX IF NOT EXISTS idx_admin_users_role      ON admin_users(role);
-CREATE INDEX IF NOT EXISTS idx_admin_users_reg_code  ON admin_users(registration_code);
-CREATE INDEX IF NOT EXISTS idx_admin_users_active    ON admin_users(active);
+CREATE INDEX IF NOT EXISTS idx_admin_users_email   ON admin_users(email);
+CREATE INDEX IF NOT EXISTS idx_admin_users_role    ON admin_users(role);
+CREATE INDEX IF NOT EXISTS idx_admin_users_active  ON admin_users(active);

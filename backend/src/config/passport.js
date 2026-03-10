@@ -1,25 +1,17 @@
-/**
- * Passport Google OAuth2 Strategy — Admin Portal
- *
- * Flow:
- *  1. Admin clicks "Sign in with Google" → /api/admin/auth/google
- *  2. Google redirects to /api/admin/auth/google/callback with profile
- *  3. We find or create the admin_users row via google_id
- *  4. Issue our own JWT and redirect frontend to /admin/oauth/callback?token=...
- *
- * Allowed rules:
- *  - super_admin: only the email in SUPER_ADMIN_EMAIL may use Google login AS super_admin
- *  - admin: any admin_users row with matching google_id OR whose email matches
- *    a pending/active admin record (and account is active).
- *  - New Google accounts NOT in admin_users are rejected (no self-signup).
- */
-
 const passport = require('passport');
 const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
 const { query } = require('./db');
 const jwtService = require('../services/jwtService');
 
 function setupPassport() {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET ||
+        process.env.GOOGLE_CLIENT_ID === 'your_google_client_id_here') {
+        console.warn('[Passport] ⚠️  GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set — Google OAuth disabled.');
+        passport.serializeUser((user, done) => done(null, user));
+        passport.deserializeUser((user, done) => done(null, user));
+        return;
+    }
+
     passport.use(
         new GoogleStrategy(
             {
@@ -40,7 +32,7 @@ function setupPassport() {
 
                     // 1. Try to find by google_id (returning user)
                     let { rows } = await query(
-                        `SELECT id, name, email, role, company_name, active, google_id, password_hash
+                        `SELECT id, name, email, role, job_title, active, google_id, password_hash
                          FROM admin_users WHERE google_id = $1`,
                         [googleId]
                     );
@@ -48,7 +40,7 @@ function setupPassport() {
                     // 2. If not found by google_id, try by email (first-time Google login for existing admin)
                     if (!rows.length) {
                         ({ rows } = await query(
-                            `SELECT id, name, email, role, company_name, active, google_id, password_hash
+                            `SELECT id, name, email, role, job_title, active, google_id, password_hash
                              FROM admin_users WHERE email = $1`,
                             [email]
                         ));
@@ -76,27 +68,21 @@ function setupPassport() {
                         return done(null, false, { message: 'Your admin account has been deactivated.' });
                     }
 
-                    // 5. Account must not be in PENDING_SETUP state (password hasn't been set yet
-                    //    AND google_id was just linked — we allow them through, as Google IS their auth method)
-                    // If password_hash is PENDING_SETUP and google_id was not previously set, we now
-                    // mark setup as complete since Google auth replaces password setup.
-                    if (admin.password_hash === 'PENDING_SETUP') {
-                        await query(
-                            `UPDATE admin_users
-                             SET password_hash = 'GOOGLE_AUTH', setup_token = NULL, setup_token_expiry = NULL,
-                                 google_id = $1, updated_at = NOW()
-                             WHERE id = $2`,
-                            [googleId, admin.id]
-                        );
-                    }
-
-                    // 6. Update last_login
+                    // 5. Update last_login
                     await query(`UPDATE admin_users SET last_login = NOW() WHERE id = $1`, [admin.id]);
 
-                    // 7. Issue JWT
+                    // 6. Issue JWT
                     const token = jwtService.generateAdminToken(admin);
 
-                    return done(null, { token, admin });
+                    return done(null, {
+                        token, admin: {
+                            id: admin.id,
+                            name: admin.name,
+                            email: admin.email,
+                            jobTitle: admin.job_title,
+                            role: admin.role,
+                        }
+                    });
                 } catch (err) {
                     return done(err);
                 }
