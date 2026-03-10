@@ -5,6 +5,7 @@
  * On refresh: token lost → redirect to /admin/login.
  */
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { adminApi, ApiError } from '@/lib/api';
 
 interface AdminProfile {
@@ -29,42 +30,50 @@ interface AdminAuthStore {
     isSuperAdmin: () => boolean;
 }
 
-export const useAdminAuthStore = create<AdminAuthStore>((set, get) => ({
-    token: null,
-    admin: null,
-    role: null,
-    isAuthenticated: false,
-    isLoading: false,
+export const useAdminAuthStore = create<AdminAuthStore>()(
+    persist(
+        (set, get) => ({
+            token: null,
+            admin: null,
+            role: null,
+            isAuthenticated: false,
+            isLoading: false,
 
-    login: async (email, password) => {
-        set({ isLoading: true });
-        try {
-            const result = await adminApi.login(email, password);
-            set({
-                token: result.token,
-                admin: result.admin,
-                role: result.admin.role,
-                isAuthenticated: true,
-                isLoading: false,
-            });
-        } catch (err) {
-            set({ isLoading: false });
-            throw err; // Re-throw so callers (e.g. AdminLogin) can handle UI errors
-        }
-    },
+            login: async (email, password) => {
+                set({ isLoading: true });
+                try {
+                    const result = await adminApi.login(email, password);
+                    set({
+                        token: result.token,
+                        admin: result.admin,
+                        role: result.admin.role,
+                        isAuthenticated: true,
+                        isLoading: false,
+                    });
+                } catch (err) {
+                    set({ isLoading: false });
+                    throw err; // Re-throw so callers (e.g. AdminLogin) can handle UI errors
+                }
+            },
 
-    setAuth: (token, admin) =>
-        set({
-            token,
-            admin,
-            role: admin.role,
-            isAuthenticated: true,
+            setAuth: (token, admin) =>
+                set({
+                    token,
+                    admin,
+                    role: admin.role,
+                    isAuthenticated: true,
+                }),
+
+            logout: () => {
+                set({ token: null, admin: null, role: null, isAuthenticated: false });
+                window.location.href = '/admin/login';
+            },
+
+            isSuperAdmin: () => get().role === 'super_admin',
         }),
-
-    logout: () => {
-        set({ token: null, admin: null, role: null, isAuthenticated: false });
-        window.location.href = '/admin/login';
-    },
-
-    isSuperAdmin: () => get().role === 'super_admin',
-}));
+        {
+            name: 'admin-auth-storage',
+            storage: createJSONStorage(() => localStorage),
+        }
+    )
+);

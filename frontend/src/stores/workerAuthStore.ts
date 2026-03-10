@@ -4,6 +4,7 @@
  * On refresh: token lost → redirect to /login.
  */
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface WorkerProfile {
     id: string;
@@ -24,24 +25,32 @@ interface WorkerAuthStore {
     logout: () => void;
 }
 
-export const useWorkerAuthStore = create<WorkerAuthStore>((set) => ({
-    token: null,
-    worker: null,
-    isAuthenticated: false,
-    isLoading: false,
-    devOtp: null,
+export const useWorkerAuthStore = create<WorkerAuthStore>()(
+    persist(
+        (set) => ({
+            token: null,
+            worker: null,
+            isAuthenticated: false,
+            isLoading: false,
+            devOtp: null,
 
-    setToken: (token) =>
-        set({ token, isAuthenticated: true, isLoading: false }),
+            setToken: (token) =>
+                set({ token, isAuthenticated: true, isLoading: false }),
 
-    setWorker: (worker) =>
-        set({ worker }),
+            setWorker: (worker) =>
+                set({ worker }),
 
-    setDevOtp: (otp) =>
-        set({ devOtp: otp }),
+            setDevOtp: (otp) =>
+                set({ devOtp: otp }),
 
-    logout: () => {
-        set({ token: null, worker: null, isAuthenticated: false, devOtp: null });
-        window.location.href = '/';
-    },
-}));
+            logout: () => {
+                set({ token: null, worker: null, isAuthenticated: false, devOtp: null });
+                window.location.href = '/';
+            },
+        }),
+        {
+            name: 'worker-auth-storage',
+            storage: createJSONStorage(() => localStorage),
+        }
+    )
+);
