@@ -53,6 +53,7 @@ function generateWorkerToken(worker) {
 function generateAdminToken(admin) {
     return generateToken({
         id: admin.id,
+        name: admin.name || '',
         email: admin.email,
         role: admin.role, // 'admin' | 'super_admin'
         jobTitle: admin.job_title || admin.jobTitle || undefined,
