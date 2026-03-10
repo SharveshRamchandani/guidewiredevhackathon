@@ -12,8 +12,8 @@ async function getDashboardKpis() {
 
   const [workers, policies, claims, payouts, events] = await Promise.all([
     query(`SELECT COUNT(*) AS total,
-                  SUM(CASE WHEN kyc_status = 'verified' THEN 1 ELSE 0 END) AS verified
-           FROM workers WHERE is_active = TRUE`),
+                  SUM(CASE WHEN is_kyc_verified = TRUE THEN 1 ELSE 0 END) AS verified
+           FROM workers WHERE active = TRUE`),
 
     query(`SELECT COUNT(*) AS total,
                   SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active,
@@ -35,14 +35,18 @@ async function getDashboardKpis() {
   ]);
 
   const kpis = {
-    workers:         { total: +workers.rows[0].total,   verified: +workers.rows[0].verified },
-    policies:        { total: +policies.rows[0].total,  active: +policies.rows[0].active,
-                       premium_collected: +policies.rows[0].premium_collected },
-    claims:          { total: +claims.rows[0].total,    pending: +claims.rows[0].pending,
-                       approved: +claims.rows[0].approved, fraud_flagged: +claims.rows[0].fraud_flagged },
-    payouts:         { total_paid: +payouts.rows[0].total_paid },
+    workers: { total: +workers.rows[0].total, verified: +workers.rows[0].verified },
+    policies: {
+      total: +policies.rows[0].total, active: +policies.rows[0].active,
+      premium_collected: +policies.rows[0].premium_collected
+    },
+    claims: {
+      total: +claims.rows[0].total, pending: +claims.rows[0].pending,
+      approved: +claims.rows[0].approved, fraud_flagged: +claims.rows[0].fraud_flagged
+    },
+    payouts: { total_paid: +payouts.rows[0].total_paid },
     events_last_24h: +events.rows[0].total,
-    generated_at:    new Date().toISOString(),
+    generated_at: new Date().toISOString(),
   };
 
   await cacheDashboard(kpis);
@@ -51,25 +55,24 @@ async function getDashboardKpis() {
 
 // ─── Workers ──────────────────────────────────────────────────────────────────
 
-async function listWorkers({ page = 1, limit = 20, kyc_status, platform, zone_id } = {}) {
-  const offset  = (Math.max(+page, 1) - 1) * +limit;
-  const params  = [];
+async function listWorkers({ page = 1, limit = 20, platform, zone_id } = {}) {
+  const offset = (Math.max(+page, 1) - 1) * +limit;
+  const params = [];
   const filters = [];
 
-  if (kyc_status) { params.push(kyc_status); filters.push(`w.kyc_status = $${params.length}`); }
-  if (platform)   { params.push(platform);   filters.push(`w.platform = $${params.length}`); }
-  if (zone_id)    { params.push(zone_id);     filters.push(`w.zone_id = $${params.length}`); }
+  if (platform) { params.push(platform); filters.push(`w.platform = $${params.length}`); }
+  if (zone_id) { params.push(zone_id); filters.push(`w.zone_id  = $${params.length}`); }
 
   const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
   params.push(+limit, +offset);
 
   const { rows } = await query(
-    `SELECT w.id, w.name, w.phone, w.platform, w.kyc_status, w.risk_level,
-            w.upi, w.weekly_earnings, w.is_active,
-            z.name AS zone_name, c.name AS city_name, w.created_at
+    `SELECT w.id, w.name, w.phone, w.platform, w.city,
+            w.is_kyc_verified, w.risk_level, w.risk_score,
+            w.upi_id, w.avg_weekly_earning, w.active,
+            z.name AS zone_name, w.created_at
      FROM workers w
-     LEFT JOIN zones  z ON z.id = w.zone_id
-     LEFT JOIN cities c ON c.id = w.city_id
+     LEFT JOIN zones z ON z.id = w.zone_id
      ${where}
      ORDER BY w.created_at DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -113,7 +116,7 @@ async function updateWorkerKyc(workerId, status, adminId) {
 async function listAllPolicies({ page = 1, limit = 20, status } = {}) {
   const offset = (Math.max(+page, 1) - 1) * +limit;
   const params = [];
-  const where  = status
+  const where = status
     ? (params.push(status), `WHERE p.status = $${params.length}`)
     : '';
   params.push(+limit, +offset);
@@ -136,7 +139,7 @@ async function listAllPolicies({ page = 1, limit = 20, status } = {}) {
 async function listAllClaims({ page = 1, limit = 20, status } = {}) {
   const offset = (Math.max(+page, 1) - 1) * +limit;
   const params = [];
-  const where  = status
+  const where = status
     ? (params.push(status), `WHERE c.status = $${params.length}`)
     : '';
   params.push(+limit, +offset);
@@ -199,9 +202,9 @@ async function getAnalytics() {
     ]);
 
   return {
-    claims_by_type:    claimsByType.rows,
-    claims_by_status:  claimsByStatus.rows,
-    revenue_by_month:  revenueByMonth.rows,
+    claims_by_type: claimsByType.rows,
+    claims_by_status: claimsByStatus.rows,
+    revenue_by_month: revenueByMonth.rows,
     fraud_distribution: fraudDist.rows[0],
     payouts_by_status: payoutsByStatus.rows,
   };
@@ -217,14 +220,14 @@ async function getSystemConfig() {
 async function updateSystemConfig(updates, adminId) {
   // Only allow safe fields
   const allowed = ['engine_active', 'check_interval_minutes', 'payout_delay_seconds',
-                   'zone_overrides', 'thresholds'];
-  const fields  = Object.keys(updates).filter(k => allowed.includes(k));
+    'zone_overrides', 'thresholds'];
+  const fields = Object.keys(updates).filter(k => allowed.includes(k));
   if (!fields.length) {
     const e = new Error('No valid config fields provided.'); e.statusCode = 400; throw e;
   }
 
-  const values  = fields.map(f => updates[f]);
-  const setSQL  = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
+  const values = fields.map(f => updates[f]);
+  const setSQL = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
   values.push(new Date()); // updated_at
 
   const { rows } = await query(

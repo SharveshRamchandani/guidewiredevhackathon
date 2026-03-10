@@ -180,7 +180,7 @@ const Landing = () => {
               <p className="text-xs text-muted-foreground">© 2026 GigShield. All rights reserved.</p>
               <Link to="/admin/login">
                 <Button variant="link" size="sm" className="text-muted-foreground text-xs h-auto p-0">
-                  Admin Login
+                  Staff Login
                 </Button>
               </Link>
             </div>

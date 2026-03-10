@@ -1,10 +1,12 @@
 /**
  * Worker Auth Routes
  * Prefix: /api/auth
+ * No registration code — workers register directly with GigShield.
  */
 const router = require('express').Router();
 const workerAuthService = require('../services/workerAuthService');
 const { requireRegistrationToken } = require('../middleware/authMiddleware');
+const { otpSendLimiter, otpVerifyLimiter } = require('../middleware/rateLimiter');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -12,13 +14,13 @@ const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next
 
 function formatError(code, message, retryAfter) {
     const error = { code, message };
-    if (retryAfter) error.retryAfter = retryAfter;
+    if (retryAfter !== undefined) error.retryAfter = retryAfter;
     return { error };
 }
 
 // ─── POST /api/auth/send-otp ──────────────────────────────────────────────────
 
-router.post('/send-otp', asyncHandler(async (req, res) => {
+router.post('/send-otp', otpSendLimiter, asyncHandler(async (req, res) => {
     const { phone } = req.body;
 
     if (!phone) {
@@ -47,7 +49,7 @@ router.post('/send-otp', asyncHandler(async (req, res) => {
 
 // ─── POST /api/auth/verify-otp ────────────────────────────────────────────────
 
-router.post('/verify-otp', asyncHandler(async (req, res) => {
+router.post('/verify-otp', otpVerifyLimiter, asyncHandler(async (req, res) => {
     const { phone, otp } = req.body;
 
     if (!phone || !otp) {
@@ -59,37 +61,14 @@ router.post('/verify-otp', asyncHandler(async (req, res) => {
     return res.json(result);
 }));
 
-// ─── POST /api/auth/validate-code ─────────────────────────────────────────────
-// Inline validation for registration code (used during Step 2 of registration)
-
-router.post('/validate-code', asyncHandler(async (req, res) => {
-    const { code } = req.body;
-
-    if (!code) {
-        return res.status(400).json(formatError('INVALID_REGISTRATION_CODE', 'Registration code is required.'));
-    }
-
-    const result = await workerAuthService.validateRegistrationCode(code);
-    return res.json(result);
-}));
-
 // ─── POST /api/auth/register/complete ─────────────────────────────────────────
 // Protected by registration token middleware
 
 router.post('/register/complete', requireRegistrationToken, asyncHandler(async (req, res) => {
-    const {
-        name,
-        platform,
-        city,
-        zoneId,
-        avgWeeklyEarning,
-        aadhaarLast4,
-        upiId,
-        registrationCode,
-    } = req.body;
+    const { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId } = req.body;
 
-    // Validate required fields
-    const missing = ['name', 'platform', 'city', 'aadhaarLast4', 'upiId', 'registrationCode']
+    // Validate required fields — no registrationCode
+    const missing = ['name', 'platform', 'city', 'aadhaarLast4', 'upiId']
         .filter(f => !req.body[f]);
 
     if (missing.length) {
@@ -100,7 +79,7 @@ router.post('/register/complete', requireRegistrationToken, asyncHandler(async (
 
     const result = await workerAuthService.completeWorkerRegistration(
         req.headers.authorization.split(' ')[1],
-        { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId, registrationCode }
+        { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId }
     );
 
     return res.status(201).json(result);

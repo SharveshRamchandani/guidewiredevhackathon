@@ -1,8 +1,8 @@
-const adminService  = require('../services/adminService');
+const adminService = require('../services/adminService');
 const claimsService = require('../services/claimsService');
-const authService   = require('../services/authService');
+const authService = require('../services/authService');
 
-const ok  = (res, data, msg = 'Success', code = 200) =>
+const ok = (res, data, msg = 'Success', code = 200) =>
   res.status(code).json({ success: true, message: msg, data });
 const err = (next, e) => next(e);
 
@@ -14,7 +14,8 @@ async function login(req, res, next) {
 
 async function logout(req, res, next) {
   try {
-    await authService.logoutAdmin(req.token, req.user.id);
+    // req.admin is set by requireAdminAuth middleware
+    await authService.logoutAdmin(req.token, req.admin?.id);
     ok(res, null, 'Logged out');
   } catch (e) { err(next, e); }
 }
@@ -32,7 +33,7 @@ async function getWorkers(req, res, next) {
 }
 
 async function updateKyc(req, res, next) {
-  try { ok(res, await adminService.updateWorkerKyc(req.params.id, req.body.kyc_status, req.user.id)); }
+  try { ok(res, await adminService.updateWorkerKyc(req.params.id, req.body.kyc_status, req.admin?.id)); }
   catch (e) { err(next, e); }
 }
 
@@ -49,12 +50,12 @@ async function getClaims(req, res, next) {
 }
 
 async function approveClaim(req, res, next) {
-  try { ok(res, await claimsService.approveClaim(req.params.id, req.user.id), 'Claim approved'); }
+  try { ok(res, await claimsService.approveClaim(req.params.id, req.admin?.id), 'Claim approved'); }
   catch (e) { err(next, e); }
 }
 
 async function rejectClaim(req, res, next) {
-  try { ok(res, await claimsService.rejectClaim(req.params.id, req.body.reason, req.user.id), 'Claim rejected'); }
+  try { ok(res, await claimsService.rejectClaim(req.params.id, req.body.reason, req.admin?.id), 'Claim rejected'); }
   catch (e) { err(next, e); }
 }
 
@@ -77,7 +78,7 @@ async function getConfig(req, res, next) {
 }
 
 async function updateConfig(req, res, next) {
-  try { ok(res, await adminService.updateSystemConfig(req.body, req.user.id), 'Config updated'); }
+  try { ok(res, await adminService.updateSystemConfig(req.body, req.admin?.id), 'Config updated'); }
   catch (e) { err(next, e); }
 }
 

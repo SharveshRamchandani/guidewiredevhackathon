@@ -1,15 +1,15 @@
 /**
  * Worker Auth Store (Zustand)
- * Token stored in Zustand memory only — not localStorage.
- * On refresh, token is lost → redirect to /login.
+ * Token stored in Zustand memory only — not localStorage or sessionStorage.
+ * On refresh: token lost → redirect to /login.
  */
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface WorkerProfile {
     id: string;
     name: string;
     phone: string;
-    adminId?: string;
 }
 
 interface WorkerAuthStore {
@@ -25,24 +25,32 @@ interface WorkerAuthStore {
     logout: () => void;
 }
 
-export const useWorkerAuthStore = create<WorkerAuthStore>((set) => ({
-    token: null,
-    worker: null,
-    isAuthenticated: false,
-    isLoading: false,
-    devOtp: null,
+export const useWorkerAuthStore = create<WorkerAuthStore>()(
+    persist(
+        (set) => ({
+            token: null,
+            worker: null,
+            isAuthenticated: false,
+            isLoading: false,
+            devOtp: null,
 
-    setToken: (token) =>
-        set({ token, isAuthenticated: true, isLoading: false }),
+            setToken: (token) =>
+                set({ token, isAuthenticated: true, isLoading: false }),
 
-    setWorker: (worker) =>
-        set({ worker }),
+            setWorker: (worker) =>
+                set({ worker }),
 
-    setDevOtp: (otp) =>
-        set({ devOtp: otp }),
+            setDevOtp: (otp) =>
+                set({ devOtp: otp }),
 
-    logout: () => {
-        set({ token: null, worker: null, isAuthenticated: false, devOtp: null });
-        window.location.href = '/';
-    },
-}));
+            logout: () => {
+                set({ token: null, worker: null, isAuthenticated: false, devOtp: null });
+                window.location.href = '/';
+            },
+        }),
+        {
+            name: 'worker-auth-storage',
+            storage: createJSONStorage(() => localStorage),
+        }
+    )
+);
