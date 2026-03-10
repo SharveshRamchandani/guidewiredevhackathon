@@ -1,22 +1,25 @@
 /**
  * Admin Auth Routes
  * Prefix: /api/admin/auth
+ * Shared by 'admin' and 'super_admin' roles.
+ * No Google OAuth — email + password only.
  */
 const router = require('express').Router();
 const passport = require('passport');
 const adminAuthService = require('../services/adminAuthService');
+const { adminLoginLimiter } = require('../middleware/rateLimiter');
 
 const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 function formatError(code, message, retryAfter) {
     const error = { code, message };
-    if (retryAfter) error.retryAfter = retryAfter;
+    if (retryAfter !== undefined) error.retryAfter = retryAfter;
     return { error };
 }
 
 // ─── POST /api/admin/auth/login ───────────────────────────────────────────────
 
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', adminLoginLimiter, asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -44,47 +47,27 @@ router.post('/setup', asyncHandler(async (req, res) => {
     return res.json({ success: true });
 }));
 
-// ─── Google OAuth ─────────────────────────────────────────────────────────────
+// ─── GET /api/admin/auth/google ───────────────────────────────────────────────
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8080';
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-/**
- * GET /api/admin/auth/google
- * Initiates Google OAuth2 login flow.
- */
-router.get('/google',
-    passport.authenticate('google', {
-        scope: ['profile', 'email'],
-        session: false,
-    })
-);
-
-/**
- * GET /api/admin/auth/google/callback
- * Google redirects here after user consents.
- * On success → redirect to /admin/oauth/callback?token=JWT
- * On failure → redirect to /admin/login?error=...
- */
-router.get('/google/callback',
-    passport.authenticate('google', {
-        session: false,
-        failureRedirect: `${FRONTEND_URL}/admin/login?error=google_auth_failed`,
-    }),
+router.get(
+    '/google/callback',
+    passport.authenticate('google', { session: false, failureRedirect: '/admin/login?error=google_failed' }),
     (req, res) => {
-        // req.user is set by the passport strategy to { token, admin }
-        const { token, admin } = req.user;
+        // req.user has { token, admin } from the strategy
+        if (!req.user || !req.user.token) {
+            return res.redirect('/admin/login?error=google_failed');
+        }
 
-        // Pass token + user info to frontend via query params (short-lived, over HTTPS in prod)
-        const params = new URLSearchParams({
-            token,
-            id: admin.id,
-            name: admin.name,
-            email: admin.email,
-            role: admin.role,
-            ...(admin.company_name ? { companyName: admin.company_name } : {}),
-        });
+        const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-        return res.redirect(`${FRONTEND_URL}/admin/oauth/callback?${params.toString()}`);
+        // Redirect to a frontend callback page that will grab the query params and store them
+        const redirectUrl = new URL(`${FRONTEND_URL}/admin/oauth/callback`);
+        redirectUrl.searchParams.set('token', req.user.token);
+        redirectUrl.searchParams.set('admin', JSON.stringify(req.user.admin));
+
+        res.redirect(redirectUrl.toString());
     }
 );
 

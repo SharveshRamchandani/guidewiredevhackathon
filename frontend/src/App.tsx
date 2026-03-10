@@ -19,10 +19,11 @@ import Claims from "./pages/Claims";
 import Payouts from "./pages/Payouts";
 import Profile from "./pages/Profile";
 
-// Admin pages
+// Admin pages — shared (admin + super_admin)
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminSetup from "./pages/admin/AdminSetup";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminOAuthCallback from "./pages/admin/AdminOAuthCallback";
 import AdminWorkers from "./pages/admin/AdminWorkers";
 import AdminPolicies from "./pages/admin/AdminPolicies";
 import AdminClaims from "./pages/admin/AdminClaims";
@@ -31,12 +32,13 @@ import AdminCron from "./pages/admin/AdminCron";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminFraud from "./pages/admin/AdminFraud";
 import AdminProfile from "./pages/admin/AdminProfile";
-import AdminCompanies from "./pages/admin/AdminCompanies";
-import AdminCreateCompany from "./pages/admin/AdminCreateCompany";
-import AdminCompanyDetail from "./pages/admin/AdminCompanyDetail";
 import AdminPlatformStats from "./pages/admin/AdminPlatformStats";
 import AdminGlobalSettings from "./pages/admin/AdminGlobalSettings";
-import AdminOAuthCallback from "./pages/admin/AdminOAuthCallback";
+
+// Super Admin-only pages
+import AdminStaff from "./pages/admin/AdminStaff";
+import AdminCreateStaff from "./pages/admin/AdminCreateStaff";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,7 +58,7 @@ const App = () => (
             {/* Legacy register (kept for backward compat) */}
             <Route path="/register" element={<Register />} />
 
-            {/* New multi-step registration wizard */}
+            {/* Multi-step registration wizard — no registration code */}
             <Route path="/register/phone" element={<RegisterPhone />} />
             <Route path="/register/profile" element={<RegisterProfile />} />
             <Route path="/register/kyc" element={<RegisterKyc />} />
@@ -70,13 +72,13 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
 
             {/* ─── Admin Routes ─── */}
-            {/* /admin redirects to login page */}
+            {/* /admin redirects to dashboard (or login if not authenticated) */}
             <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
             <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin/setup" element={<AdminSetup />} />
             <Route path="/admin/oauth/callback" element={<AdminOAuthCallback />} />
+            <Route path="/admin/setup" element={<AdminSetup />} />
 
-            {/* Admin protected routes */}
+            {/* Admin + Super Admin protected routes */}
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/workers" element={<AdminWorkers />} />
             <Route path="/admin/policies" element={<AdminPolicies />} />
@@ -87,10 +89,9 @@ const App = () => (
             <Route path="/admin/fraud" element={<AdminFraud />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
 
-            {/* Super Admin only routes */}
-            <Route path="/admin/companies" element={<AdminCompanies />} />
-            <Route path="/admin/companies/new" element={<AdminCreateCompany />} />
-            <Route path="/admin/companies/:id" element={<AdminCompanyDetail />} />
+            {/* Super Admin-only routes */}
+            <Route path="/admin/staff" element={<AdminStaff />} />
+            <Route path="/admin/staff/new" element={<AdminCreateStaff />} />
             <Route path="/admin/platform" element={<AdminPlatformStats />} />
             <Route path="/admin/platform/settings" element={<AdminGlobalSettings />} />
 

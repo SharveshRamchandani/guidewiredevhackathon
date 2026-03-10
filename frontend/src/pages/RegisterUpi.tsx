@@ -63,7 +63,7 @@ const RegisterUpi = () => {
                 avgWeeklyEarning: profile.earnings,
                 aadhaarLast4: aadhaar,
                 upiId: upi,
-                registrationCode: profile.registrationCode,
+                // No registrationCode — workers register directly with GigShield
             });
 
             // Clear session storage

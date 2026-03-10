@@ -1,7 +1,7 @@
 /**
  * Worker Auth Store (Zustand)
- * Token stored in Zustand memory only — not localStorage.
- * On refresh, token is lost → redirect to /login.
+ * Token stored in Zustand memory only — not localStorage or sessionStorage.
+ * On refresh: token lost → redirect to /login.
  */
 import { create } from 'zustand';
 
@@ -9,7 +9,6 @@ interface WorkerProfile {
     id: string;
     name: string;
     phone: string;
-    adminId?: string;
 }
 
 interface WorkerAuthStore {

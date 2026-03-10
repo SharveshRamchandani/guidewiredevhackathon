@@ -5,9 +5,6 @@
  */
 const jwt = require('jsonwebtoken');
 
-const DEFAULT_EXPIRY = process.env.JWT_EXPIRES_IN || '7d';
-const REGISTRATION_TOKEN_EXPIRY = '30m';
-
 // ─── AppError ─────────────────────────────────────────────────────────────────
 // Inline here to avoid circular import; also exported from errorHandler
 class AppError extends Error {
@@ -28,48 +25,51 @@ class AppError extends Error {
  * @param {string} expiresIn - Optional override e.g. '30m'
  */
 function generateToken(payload, expiresIn) {
+    const defaultExpiry = process.env.JWT_EXPIRES_IN || '24h';
     return jwt.sign(
         payload,
         process.env.JWT_SECRET,
-        { expiresIn: expiresIn || DEFAULT_EXPIRY }
+        { expiresIn: expiresIn || defaultExpiry }
     );
 }
 
 /**
  * Generate worker access token.
+ * Payload: { id, phone, role: 'worker' }
+ * No adminId — workers belong to GigShield directly.
  */
 function generateWorkerToken(worker) {
     return generateToken({
         id: worker.id,
         phone: worker.phone,
-        adminId: worker.admin_id || worker.adminId,
         role: 'worker',
-    });
+    }, process.env.JWT_EXPIRES_IN || '24h');
 }
 
 /**
  * Generate admin/super_admin access token.
+ * Payload: { id, email, role, jobTitle }
  */
 function generateAdminToken(admin) {
     return generateToken({
         id: admin.id,
         email: admin.email,
         role: admin.role, // 'admin' | 'super_admin'
-        companyName: admin.company_name || admin.companyName,
-    });
+        jobTitle: admin.job_title || admin.jobTitle || undefined,
+    }, process.env.JWT_ADMIN_EXPIRES_IN || '8h');
 }
 
 /**
  * Generate registration token (phone verified but not yet registered).
+ * Payload: { phone, role: 'pending_registration' }
  */
-function generateRegistrationToken(phone, adminId) {
+function generateRegistrationToken(phone) {
     return generateToken(
         {
             phone,
-            adminId: adminId || null,
             role: 'pending_registration',
         },
-        REGISTRATION_TOKEN_EXPIRY
+        process.env.JWT_REGISTRATION_EXPIRES_IN || '30m'
     );
 }
 

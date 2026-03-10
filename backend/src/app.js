@@ -1,22 +1,20 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const session = require('express-session');
-const passport = require('passport');
-const { setupPassport } = require('./config/passport');
 
 const { testConnection } = require('./config/db');
 const { getRedisClient } = require('./config/redis');
 const { startTriggerEngine } = require('./cron/triggerEngine');
+const { setupPassport } = require('./config/passport');
 
-// Existing routes
+// Routes
 const authRoutes = require('./routes/authRoutes');
 const policyRoutes = require('./routes/policyRoutes');
 const claimsRoutes = require('./routes/claimsRoutes');
 const payoutRoutes = require('./routes/payoutRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-// New auth/role routes
+// Auth/role routes
 const workerAuthRoutes = require('./routes/workerAuthRoutes');
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
@@ -26,8 +24,11 @@ const { globalLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
 
+setupPassport();
+const passport = require('passport');
+app.use(passport.initialize());
+
 // ─── CORS — allow multiple origins (comma-separated in FRONTEND_URL) ──────────
-// In dev, we also always allow common local ports so port changes don't break things.
 const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:8080', 'http://localhost:3000'];
 
 const allowedOrigins = [
@@ -39,7 +40,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     console.warn(`[CORS] Blocked request from: ${origin}`);
@@ -51,19 +51,6 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ─── Session (required for Passport OAuth redirect handshake only) ─────────────
-app.use(session({
-  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'gigshield_session_secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, maxAge: 5 * 60 * 1000 },
-}));
-
-// ─── Passport ─────────────────────────────────────────────────────────────────
-setupPassport();
-app.use(passport.initialize());
-app.use(passport.session());
 
 // ─── Global rate limiter (200 req / 1 min / IP) ────────────────────────────────
 app.use(globalLimiter);
@@ -81,11 +68,10 @@ app.use('/api/policy', policyRoutes);
 app.use('/api/claims', claimsRoutes);
 app.use('/api/payouts', payoutRoutes);
 
-// ⚠️  IMPORTANT: adminAuthRoutes (/api/admin/auth) and superAdminRoutes (/api/super-admin)
-// MUST be registered BEFORE adminRoutes (/api/admin).
+// ⚠️  IMPORTANT: adminAuthRoutes and superAdminRoutes MUST be registered BEFORE adminRoutes.
 // adminRoutes applies requireAdminAuth to ALL sub-paths, so if it runs first it will
-// return 401 for the public /login and Google OAuth endpoints.
-app.use('/api/admin/auth', adminAuthRoutes);   // public login + Google OAuth — no auth required
+// return 401 for the public /login endpoint.
+app.use('/api/admin/auth', adminAuthRoutes);   // public login — no auth required
 app.use('/api/super-admin', superAdminRoutes); // super_admin protected
 app.use('/api/admin', adminRoutes);            // admin protected (registered last)
 
@@ -104,7 +90,6 @@ const PORT = process.env.PORT || 5000;
 
 const mask = (url) => url?.replace(/:([^:@]{4,})@/, ':****@') ?? 'unset';
 
-// Start HTTP server immediately so nodemon doesn't hang
 const server = app.listen(PORT, () => {
   console.log(`\n🚀  GigShield Backend  →  http://localhost:${PORT}`);
   console.log(`    Env    : ${process.env.NODE_ENV}`);
@@ -116,10 +101,8 @@ const server = app.listen(PORT, () => {
 
 // Background init — connect to DB and Redis without blocking the server
 (async () => {
-  // DB
   await testConnection();
 
-  // Redis — timeout guard so app doesn't hang on Redis cloud issues
   try {
     const redisPromise = getRedisClient();
     const timeout = new Promise((_, rej) =>
@@ -131,7 +114,6 @@ const server = app.listen(PORT, () => {
     console.warn('    → Sessions/cache will not work until Redis reconnects.');
   }
 
-  // Start cron trigger engine after connections
   startTriggerEngine();
 })();
 
