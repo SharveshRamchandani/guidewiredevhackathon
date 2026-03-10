@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
 import { MobileNavDock } from "@/components/MobileNavDock";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -22,6 +23,10 @@ export function WorkerLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { worker, logout } = useWorkerAuthStore();
+  const initials = worker?.name
+    ? worker.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
+    : "U";
 
   return (
     <div className="min-h-screen bg-background">
@@ -41,12 +46,12 @@ export function WorkerLayout({ children }: { children: React.ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-primary text-primary-foreground">RK</AvatarFallback></Avatar>
+                <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback></Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild><Link to="/profile">Profile</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link to="/">Logout</Link></DropdownMenuItem>
+              <DropdownMenuItem onClick={() => logout()} className="cursor-pointer">Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -16,7 +16,7 @@ export function PageHeader({ title, description, children }: PageHeaderProps) {
         </div>
         {children && <div className="flex items-center gap-2">{children}</div>}
       </div>
-      <Separator className="mt-4" />
+      {/* <Separator className="mt-4" /> */}
     </div>
   );
 }
