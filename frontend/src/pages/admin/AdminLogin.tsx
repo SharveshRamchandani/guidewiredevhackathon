@@ -53,6 +53,11 @@ const AdminLogin = () => {
             type: "setup",
             message: "Your account setup is not complete. Check your email for the setup link.",
           });
+        } else if (err.code === "GOOGLE_ONLY_ACCOUNT") {
+          setError({
+            type: "google",
+            message: "This account uses Google Sign-In. Please use the \"Sign in with Google\" button below.",
+          });
         } else if (err.code === "RATE_LIMIT_EXCEEDED") {
           setError({
             type: "general",
@@ -85,12 +90,10 @@ const AdminLogin = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
-            {error?.type === "setup" && (
+            {(error?.type === "setup" || error?.type === "google") && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {error.message}
-                </AlertDescription>
+                <AlertDescription>{error.message}</AlertDescription>
               </Alert>
             )}
             {error?.type === "general" && (

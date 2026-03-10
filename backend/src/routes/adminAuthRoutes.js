@@ -2,7 +2,6 @@
  * Admin Auth Routes
  * Prefix: /api/admin/auth
  * Shared by 'admin' and 'super_admin' roles.
- * No Google OAuth — email + password only.
  */
 const router = require('express').Router();
 const passport = require('passport');
@@ -55,19 +54,16 @@ router.get(
     '/google/callback',
     passport.authenticate('google', { session: false, failureRedirect: '/admin/login?error=google_failed' }),
     (req, res) => {
-        // req.user has { token, admin } from the strategy
         if (!req.user || !req.user.token) {
             return res.redirect('/admin/login?error=google_failed');
         }
 
         const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-        // Redirect to a frontend callback page that will grab the query params and store them
-        const redirectUrl = new URL(`${FRONTEND_URL}/admin/oauth/callback`);
-        redirectUrl.searchParams.set('token', req.user.token);
-        redirectUrl.searchParams.set('admin', JSON.stringify(req.user.admin));
-
-        res.redirect(redirectUrl.toString());
+        // Only pass the JWT token — frontend decodes admin info from the payload directly.
+        // This avoids URL truncation issues from embedding large JSON admin objects in the URL.
+        const redirectUrl = `${FRONTEND_URL}/admin/oauth/callback?token=${encodeURIComponent(req.user.token)}`;
+        res.redirect(redirectUrl);
     }
 );
 

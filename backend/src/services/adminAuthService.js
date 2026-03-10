@@ -242,6 +242,15 @@ async function loginAdmin(email, password) {
         );
     }
 
+    // Google-only accounts cannot log in with a password
+    if (foundUser?.password_hash === 'GOOGLE_ONLY' || foundUser?.password_hash === 'GOOGLE_AUTH') {
+        throw new AppError(
+            'GOOGLE_ONLY_ACCOUNT',
+            'This account uses Google Sign-In. Please click "Sign in with Google".',
+            401
+        );
+    }
+
     if (!passwordMatch) {
         throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password.', 401);
     }

@@ -4,6 +4,26 @@ import { Loader2 } from "lucide-react";
 import { useAdminAuthStore } from "@/stores/adminAuthStore";
 import { toast } from "sonner";
 
+/**
+ * Parses a JWT payload without verifying the signature (client-side only).
+ * Signature verification happens on the backend for every protected request.
+ */
+function parseJwtPayload(token: string): Record<string, unknown> | null {
+    try {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split("")
+                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                .join("")
+        );
+        return JSON.parse(jsonPayload);
+    } catch {
+        return null;
+    }
+}
+
 export default function AdminOAuthCallback() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -11,7 +31,6 @@ export default function AdminOAuthCallback() {
 
     useEffect(() => {
         const token = searchParams.get("token");
-        const adminData = searchParams.get("admin");
         const error = searchParams.get("error");
 
         if (error) {
@@ -20,18 +39,31 @@ export default function AdminOAuthCallback() {
             return;
         }
 
-        if (token && adminData) {
-            try {
-                const admin = JSON.parse(adminData);
-                setAuth(token, admin);
-                navigate("/admin/dashboard", { replace: true });
-            } catch (err) {
-                toast.error("Failed to parse login credentials");
-                navigate("/admin/login", { replace: true });
-            }
-        } else {
+        if (!token) {
             navigate("/admin/login", { replace: true });
+            return;
         }
+
+        // Decode admin info directly from JWT payload — avoids truncated URL issues
+        const payload = parseJwtPayload(token);
+        if (!payload || !payload.id) {
+            toast.error("Invalid token received from Google login.");
+            navigate("/admin/login", { replace: true });
+            return;
+        }
+
+        const admin = {
+            id: payload.id as string,
+            name: (payload.name as string) || "",
+            email: payload.email as string,
+            role: payload.role as "admin" | "super_admin",
+            jobTitle: (payload.jobTitle as string) || undefined,
+        };
+
+        setAuth(token, admin);
+        toast.success(`Welcome back, ${admin.name || admin.email}!`);
+        navigate("/admin/dashboard", { replace: true });
+
     }, [searchParams, navigate, setAuth]);
 
     return (
