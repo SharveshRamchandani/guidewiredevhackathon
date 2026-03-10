@@ -1,32 +1,112 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Shield, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { workerApi, ApiError } from "@/lib/api";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { setToken, setWorker, setDevOtp, devOtp, isAuthenticated } = useWorkerAuthStore();
+
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
-  const handleSendOtp = () => {
-    if (phone.length !== 10) { setError("Enter a valid 10-digit phone number"); return; }
+  // Redirect if already auth'd
+  useEffect(() => {
+    if (isAuthenticated) navigate("/dashboard", { replace: true });
+  }, [isAuthenticated, navigate]);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  // Auto-fill OTP in dev mode
+  useEffect(() => {
+    if (otpSent && devOtp && devOtp.length === 6) {
+      setOtp(devOtp);
+    }
+  }, [otpSent, devOtp]);
+
+  const handleSendOtp = async () => {
+    if (!/^\d{10}$/.test(phone)) {
+      setError("Enter a valid 10-digit phone number");
+      return;
+    }
     setError("");
-    setOtpSent(true);
+    setLoading(true);
+
+    try {
+      const result = await workerApi.sendOtp(phone);
+      setOtpSent(true);
+      setCooldown(60);
+
+      if (result.otp) {
+        // Dev mode: store OTP for auto-fill
+        setDevOtp(result.otp);
+        toast.info(`[DEV] OTP: ${result.otp}`, { duration: 10000 });
+      } else {
+        toast.success("OTP sent to your phone");
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.code === 'OTP_COOLDOWN_ACTIVE') {
+          setCooldown(err.retryAfter || 60);
+          setError(`Wait ${err.retryAfter}s before requesting a new OTP.`);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Failed to send OTP. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleVerifyOtp = () => {
-    if (otp === "123456") { navigate("/dashboard"); }
-    else { setError("Invalid OTP. Try 123456 for demo."); }
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) { setError("Enter the 6-digit OTP"); return; }
+    setError("");
+    setLoading(true);
+
+    try {
+      const result = await workerApi.verifyOtp(phone, otp);
+
+      if (result.isNewUser) {
+        // Redirect to registration with token in session context
+        sessionStorage.setItem('_regToken', result.registrationToken!);
+        navigate("/register/profile");
+      } else {
+        setToken(result.token!);
+        setWorker(result.worker!);
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Verification failed. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,41 +121,98 @@ const Login = () => {
           <CardDescription>Login to your GigShield account</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
-            <div className="flex gap-2">
-              <Input value="+91" disabled className="w-16" />
-              <Input id="phone" placeholder="9876543210" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={10} />
+            <div className="flex">
+              <span className="flex items-center px-3 border border-r-0 rounded-l-md bg-muted text-muted-foreground text-sm font-medium">
+                +91
+              </span>
+              <Input
+                id="phone"
+                placeholder="9876543210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                maxLength={10}
+                inputMode="numeric"
+                disabled={otpSent}
+                className="rounded-l-none"
+              />
             </div>
           </div>
+
           {!otpSent ? (
-            <Button className="w-full" onClick={handleSendOtp}>Send OTP</Button>
+            <Button
+              id="send-otp-btn"
+              className="w-full"
+              onClick={handleSendOtp}
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Send OTP
+            </Button>
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Enter OTP</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Enter OTP</Label>
+                  {cooldown > 0 ? (
+                    <Badge variant="secondary" className="text-xs">
+                      Resend in {cooldown}s
+                    </Badge>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-auto p-0"
+                      onClick={handleSendOtp}
+                      disabled={loading}
+                    >
+                      Resend OTP
+                    </Button>
+                  )}
+                </div>
                 <div className="flex justify-center">
-                  <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={setOtp}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                  >
                     <InputOTPGroup>
-                      {[0,1,2,3,4,5].map(i => <InputOTPSlot key={i} index={i} />)}
+                      {[0, 1, 2, 3, 4, 5].map(i => <InputOTPSlot key={i} index={i} />)}
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
+                {devOtp && (
+                  <p className="text-xs text-center text-amber-600 dark:text-amber-400">
+                    [Dev Mode] OTP auto-filled: {devOtp}
+                  </p>
+                )}
               </div>
-              <Button className="w-full" onClick={handleVerifyOtp}>Verify & Login</Button>
+              <Button
+                id="verify-otp-btn"
+                className="w-full"
+                onClick={handleVerifyOtp}
+                disabled={loading || otp.length !== 6}
+              >
+                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Verify &amp; Login
+              </Button>
             </div>
           )}
-          <div className="relative my-2">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">or</span>
-          </div>
-          <Button variant="outline" className="w-full gap-2" onClick={() => toast.info("Google Sign-In coming soon")}>
-            <svg className="h-4 w-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            Sign in with Google
-          </Button>
+
           <p className="text-center text-sm text-muted-foreground">
-            Don't have an account? <Link to="/register" className="text-primary hover:underline">Register</Link>
+            New here?{" "}
+            <Link to="/register/phone" className="text-primary hover:underline">
+              Register
+            </Link>
           </p>
         </CardContent>
       </Card>

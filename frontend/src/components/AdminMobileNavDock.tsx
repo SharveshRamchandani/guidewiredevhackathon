@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, ShieldAlert, Settings, BarChart3, FileText, AlertTriangle, Zap, Clock } from "lucide-react";
+import { LayoutDashboard, Users, ShieldAlert, Settings, BarChart3, FileText, AlertTriangle, Zap, Clock, Building2, PlusCircle, Activity } from "lucide-react";
 import { LucideIcon } from "lucide-react";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
 
 interface SubItem {
   label: string;
@@ -16,6 +17,7 @@ interface DockGroup {
   icon: LucideIcon;
   paths: string[];
   items: SubItem[];
+  superAdminOnly?: boolean;
 }
 
 const dockGroups: DockGroup[] = [
@@ -55,12 +57,27 @@ const dockGroups: DockGroup[] = [
       { label: "Cron Engine", path: "/admin/cron", icon: Clock },
     ],
   },
+  {
+    label: "Platform",
+    icon: Building2,
+    paths: ["/admin/companies", "/admin/companies/new", "/admin/platform", "/admin/platform/settings"],
+    items: [
+      { label: "Companies", path: "/admin/companies", icon: Building2 },
+      { label: "Create Company", path: "/admin/companies/new", icon: PlusCircle },
+      { label: "Platform Stats", path: "/admin/platform", icon: Activity },
+      { label: "Settings", path: "/admin/platform/settings", icon: Settings },
+    ],
+    superAdminOnly: true,
+  },
 ];
 
 export function AdminMobileNavDock() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isSuperAdmin } = useAdminAuthStore();
   const [openGroup, setOpenGroup] = useState<number | null>(null);
+
+  const visibleGroups = dockGroups.filter((g) => !g.superAdminOnly || isSuperAdmin());
 
   const handleGroupClick = (index: number) => {
     setOpenGroup(openGroup === index ? null : index);
@@ -77,7 +94,6 @@ export function AdminMobileNavDock() {
       <AnimatePresence>
         {openGroup !== null && (
           <>
-            {/* Backdrop */}
             <motion.div
               className="fixed inset-0 z-40"
               initial={{ opacity: 0 }}
@@ -93,7 +109,7 @@ export function AdminMobileNavDock() {
               className="absolute bottom-full mb-2 left-0 right-0 flex justify-center z-50"
             >
               <div className="bg-card/95 backdrop-blur-md border border-border/50 rounded-xl shadow-lg p-1.5 min-w-[160px]">
-                {dockGroups[openGroup].items.map((item) => {
+                {visibleGroups[openGroup]?.items.map((item) => {
                   const isActive = location.pathname === item.path;
                   const Icon = item.icon;
                   return (
@@ -126,8 +142,8 @@ export function AdminMobileNavDock() {
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className="flex items-center gap-1 rounded-2xl px-2 py-2 shadow-lg border border-border/50 bg-card/95 backdrop-blur-md relative z-50"
       >
-        {dockGroups.map((group, index) => {
-          const isGroupActive = group.paths.includes(location.pathname);
+        {visibleGroups.map((group, index) => {
+          const isGroupActive = group.paths.some((p) => location.pathname.startsWith(p));
           const isOpen = openGroup === index;
           const Icon = group.icon;
 
@@ -136,7 +152,7 @@ export function AdminMobileNavDock() {
               key={group.label}
               onClick={() => handleGroupClick(index)}
               className={cn(
-                "relative flex flex-col items-center justify-center h-12 min-w-[64px] px-2 rounded-xl transition-colors",
+                "relative flex flex-col items-center justify-center h-12 min-w-[56px] px-1.5 rounded-xl transition-colors",
                 isGroupActive || isOpen
                   ? "bg-primary/15 text-primary"
                   : "text-muted-foreground hover:bg-muted"
