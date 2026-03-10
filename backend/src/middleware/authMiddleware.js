@@ -138,7 +138,9 @@ async function requireAdminAuth(req, res, next) {
         }
 
         if (!rows[0].active) {
-            return sendUnauthorized(res, 'UNAUTHORIZED', 'Admin account has been deactivated.');
+            return res.status(403).json({
+                error: { code: 'INACTIVE_ACCOUNT', message: 'Your admin account has been deactivated.' }
+            });
         }
 
         req.admin = {

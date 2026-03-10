@@ -112,7 +112,7 @@ function setupPassport() {
 
                     // ── 4. Account must be active ─────────────────────────────────────
                     if (!admin.active) {
-                        return done(null, false, { message: 'Your admin account has been deactivated.' });
+                        return done(null, false, { message: 'inactive' });
                     }
 
                     // ── 5. Update last_login ──────────────────────────────────────────

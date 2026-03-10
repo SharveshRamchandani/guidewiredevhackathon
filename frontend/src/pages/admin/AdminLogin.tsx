@@ -5,7 +5,7 @@
  * Email + password only — no Google OAuth.
  */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -20,7 +20,11 @@ import { useAdminAuthStore } from "@/stores/adminAuthStore";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setAuth, isAuthenticated } = useAdminAuthStore();
+
+  // Where to go after login — default to dashboard
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/admin/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,10 +32,10 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ type: string; message: string } | null>(null);
 
-  // Already authenticated → redirect to dashboard
+  // Already authenticated → redirect to intended destination
   useEffect(() => {
-    if (isAuthenticated) navigate("/admin/dashboard", { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated) navigate(from, { replace: true });
+  }, [isAuthenticated, navigate, from]);
 
   const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -45,7 +49,7 @@ const AdminLogin = () => {
     try {
       const result = await adminApi.login(email, password);
       setAuth(result.token, result.admin);
-      navigate("/admin/dashboard");
+      navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === "SETUP_NOT_COMPLETED") {
@@ -63,6 +67,8 @@ const AdminLogin = () => {
             type: "general",
             message: "Too many login attempts. Please try again later.",
           });
+        } else if (err.code === "INACTIVE_ACCOUNT") {
+          navigate("/not-authorized", { replace: true });
         } else {
           setError({ type: "general", message: "Invalid email or password." });
         }

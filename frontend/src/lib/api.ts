@@ -48,8 +48,15 @@ async function apiFetch<T>(
 
     if (!res.ok) {
         const err = data as ApiErrorShape;
+        const code = err?.error?.code || 'UNKNOWN_ERROR';
+
+        // Global intercept: If account becomes inactive mid-session
+        if (code === 'INACTIVE_ACCOUNT') {
+            window.location.href = '/not-authorized';
+        }
+
         throw new ApiError(
-            err?.error?.code || 'UNKNOWN_ERROR',
+            code,
             err?.error?.message || `HTTP ${res.status}`,
             res.status,
             err?.error?.retryAfter
