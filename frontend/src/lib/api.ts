@@ -48,8 +48,15 @@ async function apiFetch<T>(
 
     if (!res.ok) {
         const err = data as ApiErrorShape;
+        const code = err?.error?.code || 'UNKNOWN_ERROR';
+
+        // Global intercept: If account becomes inactive mid-session
+        if (code === 'INACTIVE_ACCOUNT') {
+            window.location.href = '/not-authorized';
+        }
+
         throw new ApiError(
-            err?.error?.code || 'UNKNOWN_ERROR',
+            code,
             err?.error?.message || `HTTP ${res.status}`,
             res.status,
             err?.error?.retryAfter
@@ -79,12 +86,7 @@ export const workerApi = {
             { method: 'POST', body: JSON.stringify({ phone, otp }) }
         ),
 
-    validateCode: (code: string) =>
-        apiFetch<{ valid: boolean; companyName?: string }>(
-            '/api/auth/validate-code',
-            { method: 'POST', body: JSON.stringify({ code }) }
-        ),
-
+    // No registrationCode — workers register directly with GigShield
     completeRegistration: (registrationToken: string, data: {
         name: string;
         platform: string;
@@ -93,9 +95,8 @@ export const workerApi = {
         avgWeeklyEarning?: number;
         aadhaarLast4: string;
         upiId: string;
-        registrationCode: string;
     }) =>
-        apiFetch<{ token: string; worker: { id: string; name: string; phone: string; adminId: string } }>(
+        apiFetch<{ token: string; worker: { id: string; name: string; phone: string } }>(
             '/api/auth/register/complete',
             {
                 method: 'POST',
@@ -111,7 +112,7 @@ export const adminApi = {
     login: (email: string, password: string) =>
         apiFetch<{
             token: string;
-            admin: { id: string; name: string; email: string; role: 'admin' | 'super_admin'; companyName?: string };
+            admin: { id: string; name: string; email: string; role: 'admin' | 'super_admin'; jobTitle?: string };
         }>(
             '/api/admin/auth/login',
             { method: 'POST', body: JSON.stringify({ email, password }) }
@@ -127,39 +128,49 @@ export const adminApi = {
 // ─── Super Admin ──────────────────────────────────────────────────────────────
 
 export const superAdminApi = {
-    createAdmin: (data: {
+    createStaff: (data: {
         name: string;
         email: string;
-        companyName: string;
-        companyRegNumber?: string;
+        jobTitle?: string;
     }, token: string) =>
         apiFetch<{
             success: boolean;
             setupLink?: string;
-            registrationCode?: string;
-            admin?: { id: string; name: string; email: string; companyName: string };
+            admin?: { id: string; name: string; email: string; jobTitle?: string };
         }>(
-            '/api/super-admin/admins/create',
+            '/api/super-admin/staff/create',
             { method: 'POST', body: JSON.stringify(data) },
             token
         ),
 
-    listAdmins: (token: string) =>
+    listStaff: (token: string) =>
         apiFetch<{
-            admins: Array<{
-                id: string; name: string; email: string; company_name: string;
-                registration_code: string; active: boolean; worker_count: number;
-                active_policy_count: number; claims_this_month: number;
-            }>
+            staff: Array<{
+                id: string;
+                name: string;
+                email: string;
+                job_title: string | null;
+                role: 'admin' | 'super_admin';
+                active: boolean;
+                last_login: string | null;
+                created_at: string;
+            }>;
         }>(
-            '/api/super-admin/admins',
+            '/api/super-admin/staff',
             {},
             token
         ),
 
-    deactivateAdmin: (id: string, token: string) =>
+    deactivateStaff: (id: string, token: string) =>
         apiFetch<{ success: boolean }>(
-            `/api/super-admin/admins/${id}/deactivate`,
+            `/api/super-admin/staff/${id}/deactivate`,
+            { method: 'PATCH' },
+            token
+        ),
+
+    reactivateStaff: (id: string, token: string) =>
+        apiFetch<{ success: boolean }>(
+            `/api/super-admin/staff/${id}/reactivate`,
             { method: 'PATCH' },
             token
         ),
@@ -167,14 +178,53 @@ export const superAdminApi = {
     getPlatformStats: (token: string) =>
         apiFetch<{
             stats: {
-                totalAdmins: number;
                 totalWorkers: number;
+                activeWorkersThisWeek: number;
                 totalActivePolicies: number;
+                totalPremiumsThisWeek: number;
                 totalPayoutsThisWeek: number;
-            }
+                platformLossRatio: number;
+                totalAdminStaff: number;
+                pendingFraudReviews: number;
+            };
         }>(
             '/api/super-admin/dashboard/stats',
             {},
             token
         ),
+
+    getAuditLog: (params: {
+        page?: number;
+        limit?: number;
+        adminId?: string;
+        action?: string;
+        from?: string;
+        to?: string;
+    }, token: string) => {
+        const qs = new URLSearchParams(
+            Object.entries(params)
+                .filter(([, v]) => v !== undefined && v !== '')
+                .map(([k, v]) => [k, String(v)])
+        ).toString();
+        return apiFetch<{
+            logs: Array<{
+                id: string;
+                admin_name: string;
+                admin_email: string;
+                action: string;
+                target_type: string;
+                target_id: string;
+                old_value: unknown;
+                new_value: unknown;
+                created_at: string;
+            }>;
+            total: number;
+            page: number;
+            limit: number;
+        }>(
+            `/api/super-admin/audit-log${qs ? `?${qs}` : ''}`,
+            {},
+            token
+        );
+    },
 };

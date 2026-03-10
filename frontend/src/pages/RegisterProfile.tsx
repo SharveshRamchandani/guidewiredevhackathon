@@ -1,7 +1,7 @@
 /**
  * Registration Step 2 — Profile Setup
  * Route: /register/profile
- * Includes registration code validation that links worker to admin tenant.
+ * No company/registration code — workers register directly with GigShield.
  */
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
@@ -16,10 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, HelpCircle, ArrowLeft, ArrowRight, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Shield, HelpCircle, ArrowLeft, ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { workerApi, ApiError } from "@/lib/api";
 
 const zones: Record<string, { name: string; risk: "low" | "medium" | "high" }[]> = {
     mumbai: [
@@ -31,6 +29,12 @@ const zones: Record<string, { name: string; risk: "low" | "medium" | "high" }[]>
     bangalore: [
         { name: "Koramangala", risk: "low" }, { name: "Whitefield", risk: "medium" }, { name: "Electronic City", risk: "high" },
     ],
+    hyderabad: [
+        { name: "Hitech City", risk: "low" }, { name: "Kukatpally", risk: "medium" }, { name: "LB Nagar", risk: "high" },
+    ],
+    chennai: [
+        { name: "Anna Nagar", risk: "low" }, { name: "T Nagar", risk: "medium" }, { name: "Tambaram", risk: "high" },
+    ],
 };
 
 const riskVariant = (risk: string) => {
@@ -38,8 +42,6 @@ const riskVariant = (risk: string) => {
     if (risk === "medium") return "secondary" as const;
     return "outline" as const;
 };
-
-type CodeValidState = null | 'valid' | 'invalid' | 'checking';
 
 const RegisterProfile = () => {
     const navigate = useNavigate();
@@ -49,46 +51,26 @@ const RegisterProfile = () => {
     const [city, setCity] = useState("");
     const [zone, setZone] = useState("");
     const [earnings, setEarnings] = useState("");
-    const [registrationCode, setRegistrationCode] = useState("");
-    const [codeState, setCodeState] = useState<CodeValidState>(null);
-    const [codeCompanyName, setCodeCompanyName] = useState("");
-    const [codeError, setCodeError] = useState("");
 
-    // Guard — must have registration token
+    // Guard — must have registration token from Step 1
     useEffect(() => {
         if (!sessionStorage.getItem('_regToken')) {
             navigate("/register/phone", { replace: true });
         }
     }, [navigate]);
 
-    const validateCode = async () => {
-        if (!registrationCode.trim()) return;
-        setCodeState('checking');
-        setCodeCompanyName("");
-        setCodeError("");
-
-        try {
-            const result = await workerApi.validateCode(registrationCode.trim());
-            if (result.valid) {
-                setCodeState('valid');
-                setCodeCompanyName(result.companyName || "");
-            } else {
-                setCodeState('invalid');
-                setCodeError("Invalid code. Check with your delivery platform.");
-            }
-        } catch {
-            setCodeState('invalid');
-            setCodeError("Unable to validate code. Please try again.");
-        }
-    };
-
-    const canProceed = name && platform && city && zone && earnings && codeState === 'valid';
+    // No registration code — workers register directly with GigShield
+    const canProceed = name && platform && city && zone && earnings;
 
     const handleNext = () => {
         if (!canProceed) return;
-        // Store profile data in sessionStorage for next steps
         sessionStorage.setItem('_regProfile', JSON.stringify({
-            name, platform, city, zone, earnings: Number(earnings), registrationCode: registrationCode.trim().toUpperCase(),
+            name,
+            platform,
+            city,
+            zone,
+            earnings: Number(earnings),
+            // No registrationCode
         }));
         navigate("/register/kyc");
     };
@@ -111,7 +93,7 @@ const RegisterProfile = () => {
                     <CardHeader>
                         <Badge variant="outline" className="w-fit mb-2">Step 2 of 4</Badge>
                         <CardTitle className="font-display">Profile Setup</CardTitle>
-                        <CardDescription>Tell us about yourself and your delivery platform</CardDescription>
+                        <CardDescription>Tell us about yourself and your delivery work</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {/* Name */}
@@ -157,11 +139,13 @@ const RegisterProfile = () => {
                                     <SelectItem value="mumbai">Mumbai</SelectItem>
                                     <SelectItem value="delhi">Delhi</SelectItem>
                                     <SelectItem value="bangalore">Bangalore</SelectItem>
+                                    <SelectItem value="hyderabad">Hyderabad</SelectItem>
+                                    <SelectItem value="chennai">Chennai</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        {/* Zone */}
+                        {/* Zone (loads on city change) */}
                         {city && (
                             <div className="space-y-2">
                                 <Label>Zone</Label>
@@ -194,7 +178,7 @@ const RegisterProfile = () => {
                                         <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                                     </HoverCardTrigger>
                                     <HoverCardContent className="text-sm">
-                                        Your weekly earnings help us calculate the right coverage amount for your plan.
+                                        Your weekly earnings help us calculate the right coverage amount for your GigShield plan.
                                     </HoverCardContent>
                                 </HoverCard>
                             </div>
@@ -206,47 +190,6 @@ const RegisterProfile = () => {
                                 onChange={(e) => setEarnings(e.target.value)}
                                 min={0}
                             />
-                        </div>
-
-                        {/* Registration Code */}
-                        <div className="space-y-2">
-                            <Label htmlFor="reg-code">Company Registration Code</Label>
-                            <div className="relative">
-                                <Input
-                                    id="reg-code"
-                                    placeholder="e.g. SWFT2026"
-                                    value={registrationCode}
-                                    onChange={(e) => {
-                                        setRegistrationCode(e.target.value.toUpperCase());
-                                        setCodeState(null);
-                                        setCodeCompanyName("");
-                                        setCodeError("");
-                                    }}
-                                    onBlur={validateCode}
-                                    className="uppercase pr-10"
-                                    maxLength={10}
-                                />
-                                {codeState === 'checking' && (
-                                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                                )}
-                                {codeState === 'valid' && (
-                                    <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
-                                )}
-                                {codeState === 'invalid' && (
-                                    <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive" />
-                                )}
-                            </div>
-                            {codeState === 'valid' && codeCompanyName && (
-                                <Badge variant="outline" className="text-green-600 border-green-500">
-                                    ✓ Valid Company: {codeCompanyName}
-                                </Badge>
-                            )}
-                            {codeState === 'invalid' && (
-                                <Badge variant="destructive" className="text-xs">{codeError}</Badge>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                                Your delivery company will provide this code. It links your account to your insurance provider.
-                            </p>
                         </div>
 
                         <div className="flex gap-2 pt-2">

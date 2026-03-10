@@ -1,7 +1,7 @@
 /**
  * Worker Auth Service
  * Handles OTP-based login and multi-step registration for Gig Workers.
- * Workers are linked to an admin via registration_code.
+ * Workers register directly with GigShield — no registration code / admin tenancy.
  */
 const crypto = require('crypto');
 const { query } = require('../config/db');
@@ -38,7 +38,6 @@ async function verifyWorkerOTP(phone, otp) {
     const result = await otpService.verifyOTP(phone, otp);
 
     if (!result.valid) {
-        // Map OTP error reasons to HTTP errors
         const errorMap = {
             OTP_EXPIRED: ['OTP_EXPIRED', 'OTP has expired. Please request a new one.', 400],
             INVALID_OTP: ['INVALID_OTP', 'The OTP you entered is incorrect.', 400],
@@ -50,15 +49,15 @@ async function verifyWorkerOTP(phone, otp) {
 
     // Check if worker already exists
     const { rows } = await query(
-        `SELECT id, name, phone, admin_id, is_phone_verified, is_profile_complete, is_active
-     FROM workers WHERE phone = $1`,
+        `SELECT id, name, phone, is_phone_verified, is_profile_complete, active
+         FROM workers WHERE phone = $1`,
         [phone]
     );
 
     if (rows.length && rows[0].is_phone_verified) {
         const worker = rows[0];
 
-        if (!worker.is_active) {
+        if (!worker.active) {
             throw new AppError('UNAUTHORIZED', 'Your account has been deactivated.', 401);
         }
 
@@ -79,8 +78,8 @@ async function verifyWorkerOTP(phone, otp) {
         };
     }
 
-    // New user — issue a registration token (no adminId yet)
-    const registrationToken = jwtService.generateRegistrationToken(phone, null);
+    // New user — issue a short-lived registration token
+    const registrationToken = jwtService.generateRegistrationToken(phone);
 
     return {
         isNewUser: true,
@@ -90,17 +89,13 @@ async function verifyWorkerOTP(phone, otp) {
 
 // ─── Step 3: Complete registration ────────────────────────────────────────────
 
+/**
+ * @param {string} registrationToken - Short-lived JWT with role: 'pending_registration'
+ * @param {{ name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId }} data
+ * No registrationCode — workers register directly with GigShield.
+ */
 async function completeWorkerRegistration(registrationToken, data) {
-    const {
-        name,
-        platform,
-        city,
-        zoneId,
-        avgWeeklyEarning,
-        aadhaarLast4,
-        upiId,
-        registrationCode,
-    } = data;
+    const { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId } = data;
 
     // 1. Verify registration token
     const decoded = jwtService.verifyToken(registrationToken);
@@ -110,23 +105,7 @@ async function completeWorkerRegistration(registrationToken, data) {
 
     const phone = decoded.phone;
 
-    // 2. Resolve admin_id from registration code
-    const { rows: adminRows } = await query(
-        'SELECT id, name, company_name FROM admin_users WHERE registration_code = $1 AND active = true',
-        [registrationCode.toUpperCase()]
-    );
-
-    if (!adminRows.length) {
-        throw new AppError(
-            'INVALID_REGISTRATION_CODE',
-            'The company code you entered is invalid. Please check with your delivery platform.',
-            400
-        );
-    }
-
-    const admin = adminRows[0];
-
-    // 3. Check if phone already registered (race condition guard)
+    // 2. Check if phone already registered (race condition guard)
     const { rows: existingPhone } = await query(
         'SELECT id FROM workers WHERE phone = $1',
         [phone]
@@ -135,45 +114,43 @@ async function completeWorkerRegistration(registrationToken, data) {
         throw new AppError('PHONE_ALREADY_REGISTERED', 'This phone number is already registered.', 409);
     }
 
-    // 4. Hash aadhaarLast4
+    // 3. Hash aadhaarLast4 with SHA-256
     const aadhaarHash = hashSHA256(aadhaarLast4);
 
-    // 5. Check aadhaar_hash uniqueness
+    // 4. Check aadhaar_hash uniqueness
     const { rows: aadhaarRows } = await query(
         'SELECT id FROM workers WHERE aadhaar_hash = $1',
         [aadhaarHash]
     );
     if (aadhaarRows.length) {
-        throw new AppError(
-            'AADHAAR_ALREADY_REGISTERED',
-            'This Aadhaar is already linked to another account.',
-            409
-        );
+        throw new AppError('AADHAAR_ALREADY_REGISTERED', 'This Aadhaar is already linked to another account.', 409);
     }
 
-    // 6. Validate UPI ID format
+    // 5. Validate UPI ID format
     if (!UPI_REGEX.test(upiId)) {
-        throw new AppError('INVALID_UPI', 'UPI ID format is invalid. Expected format: name@bankname', 400);
+        throw new AppError('INVALID_UPI_ID', 'UPI ID format is invalid. Expected format: name@bankname', 400);
     }
 
-    // 7. Insert worker record
+    // 6. Insert worker record — no admin_id
     const { rows: newWorkerRows } = await query(
         `INSERT INTO workers
-       (admin_id, phone, name, platform, city, zone_id_int, avg_weekly_earning,
-        aadhaar_hash, upi, is_phone_verified, is_kyc_verified, is_profile_complete,
-        is_active, last_login, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, true, true, true, NOW(), NOW(), NOW())
-     RETURNING id, name, phone, admin_id, platform, city`,
+           (phone, name, platform, city, zone_id, avg_weekly_earning,
+            aadhaar_hash, upi_id, is_phone_verified, is_kyc_verified, is_profile_complete,
+            active, last_login, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, true, true, NOW(), NOW(), NOW())
+         RETURNING id, name, phone, platform, city`,
         [
-            admin.id, phone, name, platform, city,
-            zoneId || null, avgWeeklyEarning || null,
-            aadhaarHash, upiId,
+            phone, name, platform, city,
+            zoneId || null,
+            avgWeeklyEarning || null,
+            aadhaarHash,
+            upiId,
         ]
     );
 
     const worker = newWorkerRows[0];
 
-    // 8. Issue worker JWT
+    // 7. Issue worker JWT
     const token = jwtService.generateWorkerToken(worker);
 
     return {
@@ -183,25 +160,12 @@ async function completeWorkerRegistration(registrationToken, data) {
             id: worker.id,
             name: worker.name,
             phone: worker.phone,
-            adminId: worker.admin_id,
         },
     };
-}
-
-// ─── Validate registration code (inline route) ────────────────────────────────
-
-async function validateRegistrationCode(code) {
-    const { rows } = await query(
-        'SELECT id, company_name FROM admin_users WHERE registration_code = $1 AND active = true',
-        [code.toUpperCase()]
-    );
-    if (!rows.length) return { valid: false };
-    return { valid: true, companyName: rows[0].company_name };
 }
 
 module.exports = {
     initiateWorkerLogin,
     verifyWorkerOTP,
     completeWorkerRegistration,
-    validateRegistrationCode,
 };
