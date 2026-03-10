@@ -15,7 +15,7 @@ const NotAuthorizedPage = () => {
         <p className="mb-6 text-1xl text-muted-foreground">
           You don't have permission to access this page. Please contact your administrator if you believe this is an error.
         </p>
-        <Button onClick={() => navigate("/login")}>
+        <Button onClick={() => navigate("/admin/login")}>
           Back to Login
         </Button>
       </div>
