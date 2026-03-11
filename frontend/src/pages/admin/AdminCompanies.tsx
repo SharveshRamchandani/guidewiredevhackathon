@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
-import { RequireSuperAdmin } from "@/components/RequireSuperAdmin";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,8 +37,7 @@ const AdminCompanies = () => {
   const activeCount = companies.filter((c) => c.status === "active").length;
 
   return (
-    <RequireSuperAdmin>
-      <AdminLayout>
+    <>
         <PageHeader title="All Companies" description="Manage insurance companies on the platform">
           <Badge variant="secondary" className="text-sm">{activeCount} Active</Badge>
           <Button onClick={() => navigate("/admin/companies/new")}>
@@ -139,8 +137,7 @@ const AdminCompanies = () => {
             </Table>
           </CardContent>
         </Card>
-      </AdminLayout>
-    </RequireSuperAdmin>
+    </>
   );
 };
 

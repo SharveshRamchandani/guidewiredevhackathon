@@ -1,4 +1,3 @@
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +35,7 @@ const riskData = [
 
 const AdminAnalytics = () => {
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Analytics" description="Platform insights and predictive risk analysis">
         <div className="flex gap-2">
           <Popover><PopoverTrigger asChild><Button variant="outline"><CalendarIcon className="h-4 w-4 mr-2" /> Date Range</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="range" /></PopoverContent></Popover>
@@ -116,7 +115,7 @@ const AdminAnalytics = () => {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

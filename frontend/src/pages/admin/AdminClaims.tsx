@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +33,7 @@ const AdminClaims = () => {
   const filtered = tab === "all" ? claims : claims.filter(c => c.status === tab);
 
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Claims Management" description="Review and process worker claims">
         <Button disabled={checked.length === 0}>Approve Selected ({checked.length})</Button>
       </PageHeader>
@@ -102,7 +101,7 @@ const AdminClaims = () => {
           )}
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 };
 
