@@ -1,27 +1,29 @@
-import { 
-  LayoutDashboard, 
-  Users, 
-  ShieldCheck, 
-  FileText, 
-  Wallet, 
-  CloudLightning, 
-  AlertTriangle, 
-  Timer, 
-  BarChart3, 
-  UserCog, 
-  UserPlus, 
-  Globe, 
-  Settings2, 
-  Zap, 
-  Menu, 
-  Settings 
+import {
+  LayoutDashboard,
+  Users,
+  ShieldCheck,
+  FileText,
+  Wallet,
+  CloudLightning,
+  AlertTriangle,
+  Timer,
+  BarChart3,
+  UserCog,
+  UserPlus,
+  Globe,
+  Settings2,
+  Zap,
+  Menu,
+  Settings,
+  Bell
 } from "lucide-react";
 
 export const sidebarGroups = [
   {
     label: null,
     items: [
-      { label: 'Dashboard', route: '/admin/dashboard', icon: LayoutDashboard }
+      { label: 'Dashboard', route: '/admin/dashboard', icon: LayoutDashboard },
+      { label: 'Notifications', route: '/admin/notifications', icon: Bell }
     ]
   },
   {
@@ -65,7 +67,7 @@ export const bottomTabs = [
     icon: LayoutDashboard,
     defaultRoute: '/admin/dashboard',
     routes: [
-      '/admin/dashboard', 
+      '/admin/dashboard',
       '/admin/analytics'
     ],
   },
