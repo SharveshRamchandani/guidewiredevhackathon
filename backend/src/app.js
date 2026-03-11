@@ -18,6 +18,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const workerAuthRoutes = require('./routes/workerAuthRoutes');
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { globalLimiter } = require('./middleware/rateLimiter');
@@ -74,6 +75,7 @@ app.use('/api/payouts', payoutRoutes);
 app.use('/api/admin/auth', adminAuthRoutes);   // public login — no auth required
 app.use('/api/super-admin', superAdminRoutes); // super_admin protected
 app.use('/api/admin', adminRoutes);            // admin protected (registered last)
+app.use('/api/notifications', notificationRoutes);
 
 // ─── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) =>

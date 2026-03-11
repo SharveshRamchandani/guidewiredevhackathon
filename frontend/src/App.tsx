@@ -31,6 +31,7 @@ import Policy from "./pages/Policy";
 import Claims from "./pages/Claims";
 import Payouts from "./pages/Payouts";
 import Profile from "./pages/Profile";
+import NotificationsPage from "./pages/NotificationsPage";
 
 // Admin pages
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -92,6 +93,7 @@ const App = () => (
               <Route path="/claims" element={<Claims />} />
               <Route path="/payouts" element={<Payouts />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
 
             {/* ─── Public Admin Routes ─── */}
@@ -117,6 +119,7 @@ const App = () => (
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/admin/fraud" element={<AdminFraud />} />
               <Route path="/admin/profile" element={<AdminProfile />} />
+              <Route path="/admin/notifications" element={<NotificationsPage />} />
 
               {/* ─── Super Admin-Only Routes ─── */}
               <Route path="/admin/staff" element={<RequireSuperAdmin><AdminStaff /></RequireSuperAdmin>} />

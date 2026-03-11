@@ -17,6 +17,7 @@ const navItems = [
   { label: "Claims", path: "/claims", icon: AlertTriangle },
   { label: "Payouts", path: "/payouts", icon: Wallet },
   { label: "Profile", path: "/profile", icon: User },
+  { label: "Notifications", path: "/notifications", icon: Bell },
 ];
 
 export function WorkerLayout() {
