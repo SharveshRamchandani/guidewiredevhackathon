@@ -2,10 +2,8 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, ShieldAlert, Settings, BarChart3, FileText, AlertTriangle, Zap, Clock, Building2, PlusCircle, Activity } from "lucide-react";
-import { LucideIcon } from "lucide-react";
 import { useAdminAuthStore } from "@/stores/adminAuthStore";
-import { bottomTabs, platformGroup, footerItems, sidebarGroups } from "@/config/adminNavConfig";
+import { bottomTabs, moreDrawerRoutes, platformGroup, footerItems, sidebarGroups } from "@/config/adminNavConfig";
 
 export function AdminMobileNavDock() {
   const location = useLocation();
@@ -49,7 +47,7 @@ export function AdminMobileNavDock() {
                   const currentGroup = visibleGroups[openGroup];
                   if (!currentGroup) return null;
 
-                  // If it's the "More" tab, render role-based content
+                  // Admin role-based content in More drawer
                   if (currentGroup.label === "More") {
                     const moreItems = [
                       ...(isSuperAdmin() ? platformGroup.items : []),
@@ -133,14 +131,22 @@ export function AdminMobileNavDock() {
         className="flex items-center gap-1 rounded-2xl px-2 py-2 shadow-lg border border-border/50 bg-card/95 backdrop-blur-md relative z-50"
       >
         {visibleGroups.map((group, index) => {
-          const isGroupActive = group.routes.some((p) => location.pathname.startsWith(p));
+          const isGroupActive = group.label === "More"
+            ? moreDrawerRoutes.some((p) => location.pathname.startsWith(p))
+            : group.routes.some((p) => location.pathname.startsWith(p));
           const isOpen = openGroup === index;
           const Icon = group.icon;
 
           return (
             <motion.button
               key={group.label}
-              onClick={() => handleGroupClick(index)}
+              onClick={() => {
+                if (group.defaultRoute && !isOpen && !isGroupActive) {
+                   handleNavigate(group.defaultRoute);
+                } else {
+                   handleGroupClick(index);
+                }
+              }}
               className={cn(
                 "relative flex flex-col items-center justify-center h-12 min-w-[56px] px-1.5 rounded-xl transition-colors",
                 isGroupActive || isOpen
