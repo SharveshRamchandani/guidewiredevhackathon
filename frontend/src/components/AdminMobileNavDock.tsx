@@ -125,9 +125,6 @@ export function AdminMobileNavDock() {
 
       {/* Dock bar */}
       <motion.div
-        initial={{ opacity: 0, y: 60, scale: 0.85 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className="flex items-center gap-1 rounded-2xl px-2 py-2 shadow-lg border border-border/50 bg-card/95 backdrop-blur-md relative z-50"
       >
         {visibleGroups.map((group, index) => {

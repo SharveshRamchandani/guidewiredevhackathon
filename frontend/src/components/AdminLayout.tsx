@@ -132,7 +132,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {/* Mobile hamburger menu */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden mr-2">
+              <Button variant="ghost" size="icon" className="hidden">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle menu</span>
               </Button>
