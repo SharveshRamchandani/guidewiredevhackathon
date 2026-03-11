@@ -1,4 +1,3 @@
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +29,6 @@ const Policy = () => {
   const [autoRenew, setAutoRenew] = useState(true);
 
   return (
-    <WorkerLayout>
       <div>
         <PageHeader title="Policy Details" description="Manage your insurance coverage" />
 
@@ -137,7 +135,6 @@ const Policy = () => {
           </CardContent>
         </Card>
       </div>
-    </WorkerLayout>
   );
 };
 

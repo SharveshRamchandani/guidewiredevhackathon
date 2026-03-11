@@ -1,4 +1,3 @@
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +23,7 @@ const AdminPolicies = () => {
   const [selected, setSelected] = useState<typeof policies[0] | null>(null);
 
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Policies Management" description="View and manage all worker policies">
         <Button variant="outline"><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
       </PageHeader>
@@ -76,7 +75,7 @@ const AdminPolicies = () => {
           )}
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 };
 
