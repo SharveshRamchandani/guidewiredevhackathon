@@ -28,7 +28,7 @@ import { useAdminAuthStore } from "@/stores/adminAuthStore";
 import { useToast } from "@/hooks/use-toast";
 
 import { sidebarGroups, platformGroup } from "@/config/adminNavConfig";
-
+import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -241,7 +241,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Mobile Nav Dock has been replaced by the Sheet Top Bar, so no more bottom dock for admin. */}
+      {/* Admin Mobile Nav Dock */}
+      <AdminMobileNavDock />
     </div>
   );
 }
