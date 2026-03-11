@@ -10,12 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
 
 const AdminProfile = () => {
   const { toast } = useToast();
-  const [name, setName] = useState("Admin User");
-  const [email, setEmail] = useState("admin@gigshield.in");
-  const [role, setRole] = useState("Super Admin");
+  const { admin, role: currentRole } = useAdminAuthStore();
+
+  const [name, setName] = useState(admin?.name || "Admin User");
+  const [email, setEmail] = useState(admin?.email || "admin@example.com");
+  const [role, setRole] = useState(currentRole === "super_admin" ? "Super Admin" : "Admin");
+  
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [slackNotifs, setSlackNotifs] = useState(false);
   const [criticalAlerts, setCriticalAlerts] = useState(true);
@@ -23,6 +27,8 @@ const AdminProfile = () => {
   const handleSave = () => {
     toast({ title: "Profile updated", description: "Your changes have been saved." });
   };
+  
+  const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "AD";
 
   return (
     <AdminLayout>
@@ -31,12 +37,13 @@ const AdminProfile = () => {
 
         <div className="flex items-center gap-4 mb-6">
           <Avatar className="h-16 w-16">
-            <AvatarFallback className="text-xl bg-primary text-primary-foreground font-display">AD</AvatarFallback>
+            <AvatarFallback className="text-xl bg-primary text-primary-foreground font-display">{initials}</AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold font-display">Admin User</h2>
+            <h2 className="text-xl font-bold font-display">{name}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary">Super Admin</Badge>
+              <Badge variant="secondary">{role}</Badge>
+              {admin?.jobTitle && <Badge variant="outline">{admin.jobTitle}</Badge>}
               <Badge variant="outline" className="bg-success/15 text-success border-success/30">2FA Enabled</Badge>
             </div>
           </div>

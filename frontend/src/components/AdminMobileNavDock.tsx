@@ -5,71 +5,7 @@ import { cn } from "@/lib/utils";
 import { LayoutDashboard, Users, ShieldAlert, Settings, BarChart3, FileText, AlertTriangle, Zap, Clock, Building2, PlusCircle, Activity } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 import { useAdminAuthStore } from "@/stores/adminAuthStore";
-
-interface SubItem {
-  label: string;
-  path: string;
-  icon: LucideIcon;
-}
-
-interface DockGroup {
-  label: string;
-  icon: LucideIcon;
-  paths: string[];
-  items: SubItem[];
-  superAdminOnly?: boolean;
-}
-
-const dockGroups: DockGroup[] = [
-  {
-    label: "Overview",
-    icon: LayoutDashboard,
-    paths: ["/admin/dashboard", "/admin/analytics"],
-    items: [
-      { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
-      { label: "Analytics", path: "/admin/analytics", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Workforce",
-    icon: Users,
-    paths: ["/admin/workers", "/admin/policies"],
-    items: [
-      { label: "Workers", path: "/admin/workers", icon: Users },
-      { label: "Policies", path: "/admin/policies", icon: FileText },
-    ],
-  },
-  {
-    label: "Risk",
-    icon: ShieldAlert,
-    paths: ["/admin/claims", "/admin/fraud"],
-    items: [
-      { label: "Claims", path: "/admin/claims", icon: AlertTriangle },
-      { label: "Fraud Queue", path: "/admin/fraud", icon: ShieldAlert },
-    ],
-  },
-  {
-    label: "System",
-    icon: Settings,
-    paths: ["/admin/events", "/admin/cron"],
-    items: [
-      { label: "Events", path: "/admin/events", icon: Zap },
-      { label: "Cron Engine", path: "/admin/cron", icon: Clock },
-    ],
-  },
-  {
-    label: "Platform",
-    icon: Building2,
-    paths: ["/admin/companies", "/admin/companies/new", "/admin/platform", "/admin/platform/settings"],
-    items: [
-      { label: "Companies", path: "/admin/companies", icon: Building2 },
-      { label: "Create Company", path: "/admin/companies/new", icon: PlusCircle },
-      { label: "Platform Stats", path: "/admin/platform", icon: Activity },
-      { label: "Settings", path: "/admin/platform/settings", icon: Settings },
-    ],
-    superAdminOnly: true,
-  },
-];
+import { bottomTabs, platformGroup, footerItems, sidebarGroups } from "@/config/adminNavConfig";
 
 export function AdminMobileNavDock() {
   const location = useLocation();
@@ -77,7 +13,7 @@ export function AdminMobileNavDock() {
   const { isSuperAdmin } = useAdminAuthStore();
   const [openGroup, setOpenGroup] = useState<number | null>(null);
 
-  const visibleGroups = dockGroups.filter((g) => !g.superAdminOnly || isSuperAdmin());
+  const visibleGroups = bottomTabs;
 
   const handleGroupClick = (index: number) => {
     setOpenGroup(openGroup === index ? null : index);
@@ -109,26 +45,80 @@ export function AdminMobileNavDock() {
               className="absolute bottom-full mb-2 left-0 right-0 flex justify-center z-50"
             >
               <div className="bg-card/95 backdrop-blur-md border border-border/50 rounded-xl shadow-lg p-1.5 min-w-[160px]">
-                {visibleGroups[openGroup]?.items.map((item) => {
-                  const isActive = location.pathname === item.path;
-                  const Icon = item.icon;
+                {(() => {
+                  const currentGroup = visibleGroups[openGroup];
+                  if (!currentGroup) return null;
+
+                  // If it's the "More" tab, render role-based content
+                  if (currentGroup.label === "More") {
+                    const moreItems = [
+                      ...(isSuperAdmin() ? platformGroup.items : []),
+                      ...footerItems,
+                    ];
+                    return (
+                      <div className="flex flex-col gap-1">
+                        {isSuperAdmin() && (
+                          <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {platformGroup.label}
+                          </div>
+                        )}
+                        {moreItems.map((item) => {
+                          const isActive = location.pathname === item.route;
+                          const Icon = item.icon;
+                          return (
+                            <motion.button
+                              key={item.route}
+                              onClick={() => handleNavigate(item.route)}
+                              className={cn(
+                                "flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                                isActive
+                                  ? "bg-primary/15 text-primary"
+                                  : "text-foreground hover:bg-muted"
+                              )}
+                              whileTap={{ scale: 0.97 }}
+                            >
+                              <Icon className="h-4 w-4" />
+                              {item.label}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+
+                  // Standard sub-items mapped from sidebarGroups
+                  const allSidebarItems = sidebarGroups.flatMap((group) => group.items);
+                  const groupItems = currentGroup.routes
+                    .map((route) => allSidebarItems.find((item) => item.route === route))
+                    .filter((item): item is NonNullable<typeof item> => item !== undefined);
+                  
+                  if (groupItems.length === 0) return null;
+
                   return (
-                    <motion.button
-                      key={item.path}
-                      onClick={() => handleNavigate(item.path)}
-                      className={cn(
-                        "flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-primary/15 text-primary"
-                          : "text-foreground hover:bg-muted"
-                      )}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {item.label}
-                    </motion.button>
+                    <div className="flex flex-col gap-1">
+                      {groupItems.map((item) => {
+                        const isActive = location.pathname === item.route;
+                        const Icon = item.icon;
+                        return (
+                          <motion.button
+                            key={item.route}
+                            onClick={() => handleNavigate(item.route)}
+                            className={cn(
+                              "flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                              isActive
+                                ? "bg-primary/15 text-primary"
+                                : "text-foreground hover:bg-muted"
+                            )}
+                            whileTap={{ scale: 0.97 }}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {item.label}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
                   );
-                })}
+                })()}
               </div>
             </motion.div>
           </>
@@ -143,7 +133,7 @@ export function AdminMobileNavDock() {
         className="flex items-center gap-1 rounded-2xl px-2 py-2 shadow-lg border border-border/50 bg-card/95 backdrop-blur-md relative z-50"
       >
         {visibleGroups.map((group, index) => {
-          const isGroupActive = group.paths.some((p) => location.pathname.startsWith(p));
+          const isGroupActive = group.routes.some((p) => location.pathname.startsWith(p));
           const isOpen = openGroup === index;
           const Icon = group.icon;
 
