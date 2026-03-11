@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +32,6 @@ const Profile = () => {
   const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "RK";
 
   return (
-    <WorkerLayout>
       <div className="max-w-2xl">
         <PageHeader title="Profile" description="Manage your account settings" />
 
@@ -119,7 +117,6 @@ const Profile = () => {
           </CardContent>
         </Card>
       </div>
-    </WorkerLayout>
   );
 };
 

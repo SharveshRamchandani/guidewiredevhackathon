@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
@@ -37,7 +36,7 @@ const AdminCron = () => {
   const [changed, setChanged] = useState(false);
 
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Cron Config" description="Configure the trigger engine and scheduling" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -163,7 +162,7 @@ const AdminCron = () => {
       </Card>
 
       <Button disabled={!changed} onClick={() => { setChanged(false); toast({ title: "Configuration saved" }); }}>Save Configuration</Button>
-    </AdminLayout>
+    </>
   );
 };
 

@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
-import { RequireSuperAdmin } from "@/components/RequireSuperAdmin";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,8 +60,7 @@ const AdminGlobalSettings = () => {
   };
 
   return (
-    <RequireSuperAdmin>
-      <AdminLayout>
+    <>
         <PageHeader title="Global Settings" description="Platform-wide configuration affecting all companies and workers" />
 
         {/* Cron Engine */}
@@ -234,8 +232,7 @@ const AdminGlobalSettings = () => {
             </ScrollArea>
           </CardContent>
         </Card>
-      </AdminLayout>
-    </RequireSuperAdmin>
+    </>
   );
 };
 

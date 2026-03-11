@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
-import { RequireSuperAdmin } from "@/components/RequireSuperAdmin";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,8 +60,7 @@ const AdminCompanyDetail = () => {
   const filteredWorkers = workers.filter((w) => w.name.toLowerCase().includes(workerSearch.toLowerCase()));
 
   return (
-    <RequireSuperAdmin>
-      <AdminLayout>
+    <>
         <div className="mb-4">
           <Button variant="ghost" size="sm" onClick={() => navigate("/admin/companies")} className="gap-1">
             <ArrowLeft className="h-4 w-4" /> Back to Companies
@@ -225,8 +223,7 @@ const AdminCompanyDetail = () => {
             </ScrollArea>
           </CardContent>
         </Card>
-      </AdminLayout>
-    </RequireSuperAdmin>
+    </>
   );
 };
 

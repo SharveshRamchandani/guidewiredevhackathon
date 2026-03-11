@@ -1,4 +1,3 @@
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,6 @@ const Dashboard = () => {
   const daysTotal = 7;
 
   return (
-    <WorkerLayout>
       <div>
         <PageHeader title="Dashboard" description="Welcome back, Ramesh!" />
 
@@ -151,7 +149,6 @@ const Dashboard = () => {
           </Alert>
         </div>
       </div>
-    </WorkerLayout>
   );
 };
 

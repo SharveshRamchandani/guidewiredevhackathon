@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, Outlet } from "react-router-dom";
 import { Shield, LayoutDashboard, FileText, AlertTriangle, Wallet, User, Menu, X, Bell, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -19,7 +19,7 @@ const navItems = [
   { label: "Profile", path: "/profile", icon: User },
 ];
 
-export function WorkerLayout({ children }: { children: React.ReactNode }) {
+export function WorkerLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -57,7 +57,7 @@ export function WorkerLayout({ children }: { children: React.ReactNode }) {
             <div key={item.path}>
               <Link to={item.path}>
                 <Button variant={location.pathname === item.path ? "secondary" : "ghost"} className={`w-full gap-2 ${isCollapsed ? 'justify-center px-2' : 'justify-start'}`} size="sm" title={item.label}>
-                  <item.icon className="h-4 w-4 shrink-0" /> 
+                  <item.icon className="h-4 w-4 shrink-0" />
                   {!isCollapsed && <span>{item.label}</span>}
                 </Button>
               </Link>
@@ -75,9 +75,9 @@ export function WorkerLayout({ children }: { children: React.ReactNode }) {
             <Shield className="h-5 w-5 text-primary" />
             <span className="font-bold font-display">GigShield</span>
           </Link>
-          
+
           <div className="flex-1" />
-          
+
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button variant="ghost" size="icon" className="relative" onClick={() => setNotificationsOpen(true)}>
@@ -100,7 +100,7 @@ export function WorkerLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main */}
         <main className="flex-1 p-6 pb-24 md:pb-6 overflow-x-hidden">
-          {children}
+          <Outlet />
         </main>
       </div>
 
