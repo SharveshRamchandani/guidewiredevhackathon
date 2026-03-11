@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import {
   Shield, LayoutDashboard, Users, FileText, AlertTriangle, Clock, BarChart3,
   ShieldAlert, Zap, Activity, Settings, UserPlus, UsersRound, ChevronLeft, ChevronRight
@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 
 import { sidebarGroups, platformGroup } from "@/config/adminNavConfig";
 import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
-export function AdminLayout({ children }: { children: React.ReactNode }) {
+export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { admin, isSuperAdmin, logout } = useAdminAuthStore();
@@ -148,21 +148,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-4 p-4 overflow-y-auto max-h-[calc(100vh-80px)]">
-                  {sidebarGroups.map((group, groupIndex) => (
-                    <div key={groupIndex} className="space-y-1 mb-2">
-                      {group.label && (
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">
-                          {group.label}
-                        </p>
-                      )}
-                      {group.items.map((item) => (
-                        <Link key={item.route} to={item.route} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent ${location.pathname === item.route ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"}`}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.label}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  ))}
+                {sidebarGroups.map((group, groupIndex) => (
+                  <div key={groupIndex} className="space-y-1 mb-2">
+                    {group.label && (
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">
+                        {group.label}
+                      </p>
+                    )}
+                    {group.items.map((item) => (
+                      <Link key={item.route} to={item.route} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent ${location.pathname === item.route ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                ))}
 
                 {showSuperAdmin && (
                   <div className="space-y-1 mt-4 border-t pt-4">
@@ -237,7 +237,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main */}
         <main className="flex-1 p-6 pb-24 md:pb-6 overflow-x-hidden">
-          {children}
+          <Outlet />
         </main>
       </div>
 

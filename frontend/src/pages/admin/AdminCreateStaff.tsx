@@ -5,9 +5,8 @@
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
-import { RequireSuperAdmin } from "@/components/RequireSuperAdmin";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -86,8 +85,7 @@ const AdminCreateStaff = () => {
     };
 
     return (
-        <RequireSuperAdmin>
-            <AdminLayout>
+        <>
                 <PageHeader
                     title="Add Staff Member"
                     description="Create a new GigShield operations team account"
@@ -212,8 +210,7 @@ const AdminCreateStaff = () => {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-            </AdminLayout>
-        </RequireSuperAdmin>
+        </>
     );
 };
 

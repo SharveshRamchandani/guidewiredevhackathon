@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,7 +30,6 @@ const AdminProfile = () => {
   const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "AD";
 
   return (
-    <AdminLayout>
       <div className="max-w-2xl">
         <PageHeader title="Profile" description="Manage your admin account settings" />
 
@@ -96,7 +94,6 @@ const AdminProfile = () => {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
   );
 };
 

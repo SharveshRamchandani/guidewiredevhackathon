@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
@@ -26,7 +25,7 @@ const AdminWorkers = () => {
   const filtered = workers.filter(w => w.name.toLowerCase().includes(search.toLowerCase()) || w.id.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Workers Management" description="View and manage registered workers" />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -82,7 +81,7 @@ const AdminWorkers = () => {
           )}
         </SheetContent>
       </Sheet>
-    </AdminLayout>
+    </>
   );
 };
 
