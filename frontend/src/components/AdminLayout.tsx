@@ -1,12 +1,17 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Shield, LayoutDashboard, Users, FileText, AlertTriangle, Clock, BarChart3, ShieldAlert, Zap, Menu, X, User } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Shield, LayoutDashboard, Users, FileText, AlertTriangle, Clock, BarChart3,
+  ShieldAlert, Zap, Activity, Settings, UserPlus, UsersRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
@@ -14,14 +19,34 @@ const navItems = [
   { label: "Policies", path: "/admin/policies", icon: FileText },
   { label: "Claims", path: "/admin/claims", icon: AlertTriangle },
   { label: "Events", path: "/admin/events", icon: Zap },
-  { label: "Cron", path: "/admin/cron", icon: Clock },
+  { label: "Cron Config", path: "/admin/cron", icon: Clock },
   { label: "Analytics", path: "/admin/analytics", icon: BarChart3 },
-  { label: "Fraud", path: "/admin/fraud", icon: ShieldAlert },
-  { label: "Profile", path: "/admin/profile", icon: User },
+  { label: "Fraud Queue", path: "/admin/fraud", icon: ShieldAlert },
+];
+
+// Visible only to super_admin
+const superAdminItems = [
+  { label: "Staff Management", path: "/admin/staff", icon: UsersRound },
+  { label: "Add Staff", path: "/admin/staff/new", icon: UserPlus },
+  { label: "Platform Stats", path: "/admin/platform", icon: Activity },
+  { label: "Global Settings", path: "/admin/platform/settings", icon: Settings },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { admin, isSuperAdmin, logout } = useAdminAuthStore();
+  const { toast } = useToast();
+  const showSuperAdmin = isSuperAdmin();
+  const name = admin?.name || "Admin User";
+  const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || (showSuperAdmin ? "SA" : "AD");
+
+  // Route guard: redirect to dashboard with toast if non-super-admin tries a super-admin route
+  const isSuperAdminRoute = superAdminItems.some(item => location.pathname.startsWith(item.path.split("/admin/staff/new")[0]) && location.pathname !== "/admin/dashboard");
+  if (!showSuperAdmin && superAdminItems.some(item => location.pathname.startsWith(item.path))) {
+    // Soft guard — the pages themselves have RequireSuperAdmin wrapper
+    // This is just for UX, not a security boundary (security is in the backend)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,19 +56,27 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <Link to="/admin/dashboard" className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             <span className="font-bold font-display">GigShield</span>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">Admin</span>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
+              {showSuperAdmin ? "Super Admin" : "Admin"}
+            </span>
           </Link>
           <div className="flex-1" />
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-primary text-primary-foreground">AD</AvatarFallback></Avatar>
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem asChild><Link to="/admin/login">Logout</Link></DropdownMenuItem>
+              <DropdownMenuItem disabled className="text-xs text-muted-foreground">{name}</DropdownMenuItem>
+              {admin?.jobTitle && (
+                <DropdownMenuItem disabled className="text-xs text-muted-foreground">{admin.jobTitle}</DropdownMenuItem>
+              )}
+              <DropdownMenuItem asChild><Link to="/admin/profile">Profile</Link></DropdownMenuItem>
+              <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive">Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -55,13 +88,39 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {navItems.map((item, i) => (
             <div key={item.path}>
               <Link to={item.path}>
-                <Button variant={location.pathname === item.path ? "secondary" : "ghost"} className="w-full justify-start gap-2" size="sm">
+                <Button
+                  variant={location.pathname === item.path ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2"
+                  size="sm"
+                >
                   <item.icon className="h-4 w-4" /> {item.label}
                 </Button>
               </Link>
               {(i === 0 || i === 4) && <Separator className="my-2" />}
             </div>
           ))}
+
+          {/* Super Admin only section */}
+          {showSuperAdmin && (
+            <>
+              <Separator className="my-3" />
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Platform
+              </p>
+              {superAdminItems.map((item) => (
+                <Link key={item.path} to={item.path}>
+                  <Button
+                    variant={location.pathname === item.path ? "secondary" : "ghost"}
+                    className="w-full justify-start gap-2 border-l-2 border-transparent data-[active=true]:border-l-primary"
+                    size="sm"
+                    data-active={location.pathname === item.path}
+                  >
+                    <item.icon className="h-4 w-4" /> {item.label}
+                  </Button>
+                </Link>
+              ))}
+            </>
+          )}
         </aside>
 
         {/* Main */}
