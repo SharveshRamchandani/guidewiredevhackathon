@@ -1,199 +1,460 @@
-const mlClient = require('../config/mlClient');
-const { query } = require('../config/db');
+// ============================================================
+// GigShield — Policy Service
+// Handles: quote, create, get, renew, cancel
+// ============================================================
 
-// ─── Claim type → payout ratio (matching actual schema types) ─────────────────
-const PAYOUT_RATIOS = {
-  'Heavy Rain':     0.50,
-  'Poor AQI':       0.30,
-  'Heatwave':       0.40,
-  'Platform Outage':0.60,
-  // Legacy keys for backwards compat
-  weather:          0.50,
-  aqi:              0.30,
-  strike:           0.40,
-  disruption:       0.35,
-};
+const { query } = require('../config/db');
+const axios  = require('axios');
+
+const ML_BASE_URL = process.env.ML_BASE_URL || 'http://localhost:8000';
+
+// ─────────────────────────────────────────
+// PRICING ENGINE
+// ─────────────────────────────────────────
 
 /**
- * Generate a quote by calling ML /ml/risk-score with the correct payload.
- * Falls back to a calculated estimate if ML service is unavailable.
+ * Calculate final premium for a worker + plan combination
+ * Formula: (basePremium + zoneAdjustment - loyaltyDiscount) × riskMultiplier
+ * Hard cap: never exceed 5% of worker's weekly income
  */
-async function generateQuote({ workerId, planId }) {
-  // Fetch worker + zone details
-  const { rows: workers } = await query(
-    `SELECT w.id, w.phone, w.platform, w.zone_id,
-            z.risk_level AS zone_risk_level,
-            (SELECT COUNT(*) FROM claims c
-               JOIN policies p ON p.id = c.policy_id
-               WHERE p.worker_id = w.id) AS past_claims_count
-     FROM workers w
-     LEFT JOIN zones z ON z.id = w.zone_id
-     WHERE w.id = $1`,
-    [workerId]
-  );
-  if (!workers.length) {
-    const err = new Error('Worker not found.'); err.statusCode = 404; throw err;
+function calculatePremium({ basePremium, zoneNumber, claimFreeWeeks, weeklyIncome, riskMultiplier = 1.0 }) {
+
+  // Zone adjustment (based on Excel model)
+  const zoneAdjustments = { 1: 0, 2: 0.20, 3: 0.50, 4: 0.85 };
+  const zoneAdj = basePremium * (zoneAdjustments[zoneNumber] || 0);
+
+  // Loyalty discount
+  let loyaltyDiscount = 0;
+  if      (claimFreeWeeks >= 24) loyaltyDiscount = 20;
+  else if (claimFreeWeeks >= 12) loyaltyDiscount = 15;
+  else if (claimFreeWeeks >= 4)  loyaltyDiscount = 10;
+
+  // Risk-adjusted premium
+  let finalPremium = (basePremium + zoneAdj - loyaltyDiscount) * riskMultiplier;
+
+  // Floor: never below 60% of base
+  finalPremium = Math.max(finalPremium, basePremium * 0.6);
+
+  // Affordability cap: max 5% of weekly income
+  if (weeklyIncome > 0) {
+    const affordabilityCap = weeklyIncome * 0.05;
+    finalPremium = Math.min(finalPremium, affordabilityCap);
   }
-  const w = workers[0];
-
-  // Validate plan exists
-  const { rows: plans } = await query(
-    'SELECT id, name, weekly_premium, max_coverage, coverage_config FROM plans WHERE id = $1',
-    [planId]
-  );
-  if (!plans.length) {
-    const err = new Error('Plan not found.'); err.statusCode = 404; throw err;
-  }
-  const plan = plans[0];
-
-  // Zone risk → numeric values for ML
-  const riskMap = { low: 0.2, medium: 0.5, high: 0.8 };
-  const zoneRisk = riskMap[w.zone_risk_level] || 0.3;
-
-  let riskScore = 0.5;
-  let riskLabel = 'medium';
-
-  try {
-    const mlPayload = {
-      worker_id:         `W_${workerId}`,
-      zone_id:           w.zone_id || 1,
-      platform:          w.platform || 'Swiggy',
-      months_active:     6,
-      avg_daily_hours:   8,
-      past_claims_count: parseInt(w.past_claims_count, 10) || 0,
-      zone_flood_risk:   zoneRisk,
-      zone_heat_risk:    zoneRisk * 0.7,
-    };
-    const { data: ml } = await mlClient.post('/ml/risk-score', mlPayload);
-    riskScore = ml.risk_score ?? 0.5;
-    riskLabel = ml.risk_label || 'medium';
-  } catch (mlErr) {
-    console.warn('[Policy] ML unavailable, using fallback risk score:', mlErr.message);
-    // Fallback: risk based on past claims + zone risk
-    const claimsBoost = Math.min(parseInt(w.past_claims_count, 10) * 0.05, 0.3);
-    riskScore = Math.min(0.3 + zoneRisk * 0.4 + claimsBoost, 0.9);
-    riskLabel = riskScore < 0.35 ? 'low' : riskScore < 0.65 ? 'medium' : 'high';
-  }
-
-  // Premium = plan.weekly_premium * (1 + riskScore * 0.5) — max 1.5x at risk=1.0
-  const scaledPremium = Math.round(
-    parseFloat(plan.weekly_premium) * (1 + riskScore * 0.5)
-  );
 
   return {
-    worker_id:      workerId,
-    plan_id:        plan.id,
-    plan_name:      plan.name,
-    risk_score:     riskScore,
-    risk_label:     riskLabel,
-    weekly_premium: scaledPremium,
-    max_coverage:   parseFloat(plan.max_coverage),
-    valid_for_hours: 24,
+    basePremium,
+    zoneAdjustment:   Math.round(zoneAdj * 100) / 100,
+    loyaltyDiscount,
+    riskMultiplier,
+    finalPremium:     Math.round(finalPremium * 100) / 100,
+    affordabilityPct: weeklyIncome > 0
+      ? Math.round((finalPremium / weeklyIncome) * 10000) / 100
+      : null
   };
 }
 
 /**
- * Create (purchase) a new policy.
+ * Get co-payment % for a plan
  */
-async function createPolicy({ workerId, planId, startDate, autoRenew = true }) {
-  const quote = await generateQuote({ workerId, planId });
-
-  const start = startDate || new Date().toISOString().split('T')[0];
-  const end   = addDays(start, 30);
-
-  // Generate policy_number
-  const policyNumber = `POL-${new Date().getFullYear()}-${String(Date.now()).slice(-4).padStart(4, '0')}`;
-
-  // Fetch plan coverage_config for snapshot
-  const { rows: plans } = await query(
-    'SELECT coverage_config FROM plans WHERE id = $1',
-    [planId]
-  );
-  const coverageSnapshot = plans[0]?.coverage_config || null;
-
-  const { rows } = await query(
-    `INSERT INTO policies
-       (policy_number, worker_id, plan_id, premium, max_coverage,
-        status, auto_renew, start_date, end_date, coverage_snapshot, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9, NOW(), NOW())
-     RETURNING *`,
-    [policyNumber, workerId, planId, quote.weekly_premium, quote.max_coverage,
-     autoRenew, start, end, coverageSnapshot ? JSON.stringify(coverageSnapshot) : null]
-  );
-  return rows[0];
+function getCoPay(planName) {
+  const coPays = { nano: 0.25, basic: 0.20, standard: 0.10, premium: 0 };
+  return coPays[planName] ?? 0.20;
 }
 
-async function getPolicyById(policyId, workerId = null) {
-  const params = [policyId];
-  let sql = `
-    SELECT p.*, pl.name AS plan_name, pl.coverage_config,
-           w.name AS worker_name, w.phone AS worker_phone
-    FROM policies p
-    JOIN plans   pl ON pl.id = p.plan_id
-    JOIN workers w  ON w.id  = p.worker_id
-    WHERE p.id = $1`;
+// ─────────────────────────────────────────
+// ML RISK SCORE
+// ─────────────────────────────────────────
 
-  if (workerId) { sql += ' AND p.worker_id = $2'; params.push(workerId); }
+/**
+ * Call ML service for risk score
+ * Falls back to neutral multiplier (1.0) if ML is down
+ */
+async function getRiskMultiplier(worker) {
+  try {
+    const { data } = await axios.post(`${ML_BASE_URL}/ml/risk-score`, {
+      worker_id:       worker.id,
+      platform:        worker.platform,
+      zone_id:         worker.zone_id,
+      avg_weekly_earning: worker.avg_weekly_earning,
+      risk_score:      worker.risk_score
+    }, { timeout: 3000 });
 
-  const { rows } = await query(sql, params);
-  if (!rows.length) {
-    const err = new Error('Policy not found.'); err.statusCode = 404; throw err;
+    // ML returns risk_score 0-1 → convert to multiplier 0.80–1.60
+    const multiplier = 0.80 + (data.risk_score * 0.80);
+    return Math.round(multiplier * 100) / 100;
+
+  } catch (err) {
+    console.warn('[PolicyService] ML service unavailable, using default multiplier');
+    return 1.0;
   }
-  return rows[0];
 }
 
-async function getWorkerPolicies(workerId) {
-  const { rows } = await query(
-    `SELECT p.*, pl.name AS plan_name, pl.max_coverage, pl.weekly_premium AS base_premium
-     FROM policies p
-     JOIN plans pl ON pl.id = p.plan_id
-     WHERE p.worker_id = $1
-     ORDER BY p.created_at DESC`,
-    [workerId]
-  );
-  return rows;
-}
+// ─────────────────────────────────────────
+// SERVICE METHODS
+// ─────────────────────────────────────────
 
-async function renewPolicy(policyId, workerId) {
-  const policy = await getPolicyById(policyId, workerId);
-  if (policy.status === 'cancelled') {
-    const err = new Error('Cannot renew a cancelled policy.'); err.statusCode = 400; throw err;
-  }
-
-  const newStart = addDays(policy.end_date, 1);
-  const newEnd   = addDays(newStart, 30);
-  const quote    = await generateQuote({ workerId, planId: policy.plan_id });
-
-  const { rows } = await query(
-    `UPDATE policies
-     SET start_date = $1, end_date = $2, premium = $3,
-         status = 'active', updated_at = NOW()
-     WHERE id = $4
-     RETURNING *`,
-    [newStart, newEnd, quote.weekly_premium, policyId]
-  );
-  return rows[0];
-}
-
-// ─── Plans (reference data) ───────────────────────────────────────────────────
-
+/**
+ * LIST PLANS
+ * Returns all active plans with coverage details
+ */
 async function listPlans() {
-  const { rows } = await query(
-    'SELECT id, name, weekly_premium, max_coverage, coverage_config FROM plans ORDER BY weekly_premium ASC'
-  );
+  const { rows } = await query(`
+    SELECT id, name, base_premium, max_payout, coverage_days, coverage_config
+    FROM plans
+    WHERE is_active = true
+    ORDER BY base_premium ASC
+  `);
   return rows;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+/**
+ * GENERATE QUOTE
+ * Calculates personalised premium for a worker + plan
+ */
+async function generateQuote(workerId, planId) {
 
-function addDays(dateStr, days) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  // 1. Fetch worker
+  const workerRes = await query(`
+    SELECT w.*, z.zone_number, z.risk_factor
+    FROM workers w
+    LEFT JOIN zones z ON z.id = w.zone_id
+    WHERE w.id = $1
+  `, [workerId]);
+
+  if (!workerRes.rows.length) {
+    throw { status: 404, message: 'Worker not found' };
+  }
+  const worker = workerRes.rows[0];
+
+  // 2. Fetch plan
+  const planRes = await query(`
+    SELECT * FROM plans WHERE id = $1 AND is_active = true
+  `, [planId]);
+
+  if (!planRes.rows.length) {
+    throw { status: 404, message: 'Plan not found or inactive' };
+  }
+  const plan = planRes.rows[0];
+
+  // 3. Nano plan restriction — only for low earners
+  if (plan.name === 'nano' && worker.avg_weekly_earning > 3000) {
+    throw {
+      status: 400,
+      message: 'Nano plan is only available for workers earning under ₹3,000/week'
+    };
+  }
+
+  // 4. Get ML risk multiplier
+  const riskMultiplier = await getRiskMultiplier(worker);
+
+  // 5. Calculate premium
+  const pricing = calculatePremium({
+    basePremium:     parseFloat(plan.base_premium),
+    zoneNumber:      worker.zone_number || 1,
+    claimFreeWeeks:  worker.claim_free_weeks || 0,
+    weeklyIncome:    parseFloat(worker.avg_weekly_earning) || 0,
+    riskMultiplier
+  });
+
+  // 6. Return quote
+  return {
+    plan: {
+      id:              plan.id,
+      name:            plan.name,
+      max_payout:      plan.max_payout,
+      coverage_days:   plan.coverage_days,
+      coverage_config: plan.coverage_config
+    },
+    worker: {
+      id:              worker.id,
+      name:            worker.name,
+      zone_number:     worker.zone_number,
+      claim_free_weeks: worker.claim_free_weeks || 0
+    },
+    pricing: {
+      ...pricing,
+      co_payment_percent: getCoPay(plan.name),
+      weekly_premium:     pricing.finalPremium,
+      monthly_estimate:   Math.round(pricing.finalPremium * 4 * 100) / 100
+    },
+    valid_for_minutes: 30
+  };
 }
 
+/**
+ * CREATE POLICY
+ * Purchases a policy for a worker
+ */
+async function createPolicy(workerId, planId) {
+
+  // 1. Check worker exists + is verified
+  const workerRes = await query(`
+    SELECT w.*, z.zone_number
+    FROM workers w
+    LEFT JOIN zones z ON z.id = w.zone_id
+    WHERE w.id = $1
+  `, [workerId]);
+
+  if (!workerRes.rows.length) {
+    throw { status: 404, message: 'Worker not found' };
+  }
+  const worker = workerRes.rows[0];
+
+  if (!worker.is_phone_verified) {
+    throw { status: 400, message: 'Phone must be verified before purchasing a policy' };
+  }
+
+  if (!worker.is_profile_complete) {
+    throw { status: 400, message: 'Please complete your profile before purchasing a policy' };
+  }
+
+  // 2. Check no active policy already exists
+  const activePolicy = await query(`
+    SELECT id FROM policies
+    WHERE worker_id = $1 AND status = 'active'
+    LIMIT 1
+  `, [workerId]);
+
+  if (activePolicy.rows.length) {
+    throw { status: 400, message: 'Worker already has an active policy' };
+  }
+
+  // 3. Fetch plan
+  const planRes = await query(`
+    SELECT * FROM plans WHERE id = $1 AND is_active = true
+  `, [planId]);
+
+  if (!planRes.rows.length) {
+    throw { status: 404, message: 'Plan not found or inactive' };
+  }
+  const plan = planRes.rows[0];
+
+  // 4. Nano plan restriction
+  if (plan.name === 'nano' && parseFloat(worker.avg_weekly_earning) > 3000) {
+    throw {
+      status: 400,
+      message: 'Nano plan is only available for workers earning under ₹3,000/week'
+    };
+  }
+
+  // 5. Calculate premium
+  const riskMultiplier = await getRiskMultiplier(worker);
+  const pricing = calculatePremium({
+    basePremium:    parseFloat(plan.base_premium),
+    zoneNumber:     worker.zone_number || 1,
+    claimFreeWeeks: worker.claim_free_weeks || 0,
+    weeklyIncome:   parseFloat(worker.avg_weekly_earning) || 0,
+    riskMultiplier
+  });
+
+  const coPay = getCoPay(plan.name);
+
+  // 6. Set policy dates (weekly cycle)
+  const startDate = new Date();
+  const endDate   = new Date();
+  endDate.setDate(endDate.getDate() + plan.coverage_days);
+
+  // 7. Create policy
+  const { rows } = await query(`
+    INSERT INTO policies (
+      worker_id, plan_id, status,
+      premium, premium_amount,
+      start_date, end_date,
+      co_payment_percent, auto_renew, zone_adjustment
+    ) VALUES (
+      $1, $2, 'active',
+      $3, $3,
+      $4, $5,
+      $6, false, $7
+    )
+    RETURNING *
+  `, [
+    workerId,
+    planId,
+    pricing.finalPremium,
+    startDate.toISOString().split('T')[0],
+    endDate.toISOString().split('T')[0],
+    coPay,
+    pricing.zoneAdjustment
+  ]);
+
+  const policy = rows[0];
+
+  // 8. Return full response
+  return {
+    policy: {
+      ...policy,
+      plan_name:   plan.name,
+      max_payout:  plan.max_payout,
+      days_remaining: plan.coverage_days
+    },
+    pricing,
+    message: `${plan.name.charAt(0).toUpperCase() + plan.name.slice(1)} plan activated successfully`
+  };
+}
+
+/**
+ * GET WORKER POLICIES
+ * Returns all policies for a worker
+ */
+async function getWorkerPolicies(workerId) {
+  const { rows } = await query(`
+    SELECT
+      pol.*,
+      pl.name        AS plan_name,
+      pl.max_payout,
+      pl.coverage_config,
+      pol.end_date - CURRENT_DATE AS days_remaining
+    FROM policies pol
+    JOIN plans pl ON pl.id = pol.plan_id
+    WHERE pol.worker_id = $1
+    ORDER BY pol.created_at DESC
+  `, [workerId]);
+
+  return rows;
+}
+
+/**
+ * GET POLICY BY ID
+ * Returns single policy (only if belongs to worker)
+ */
+async function getPolicyById(policyId, workerId) {
+  const { rows } = await query(`
+    SELECT
+      pol.*,
+      pl.name        AS plan_name,
+      pl.max_payout,
+      pl.coverage_config,
+      pol.end_date - CURRENT_DATE AS days_remaining,
+      w.name         AS worker_name,
+      w.phone,
+      w.upi_id
+    FROM policies pol
+    JOIN plans pl ON pl.id = pol.plan_id
+    JOIN workers w ON w.id = pol.worker_id
+    WHERE pol.id = $1 AND pol.worker_id = $2
+  `, [policyId, workerId]);
+
+  if (!rows.length) {
+    throw { status: 404, message: 'Policy not found' };
+  }
+  return rows[0];
+}
+
+/**
+ * RENEW POLICY
+ * Renews an expired or cancelled policy
+ */
+async function renewPolicy(policyId, workerId) {
+
+  // 1. Find the existing policy
+  const policyRes = await query(`
+    SELECT pol.*, pl.name AS plan_name, pl.coverage_days, pl.base_premium, pl.is_active
+    FROM policies pol
+    JOIN plans pl ON pl.id = pol.plan_id
+    WHERE pol.id = $1 AND pol.worker_id = $2
+  `, [policyId, workerId]);
+
+  if (!policyRes.rows.length) {
+    throw { status: 404, message: 'Policy not found' };
+  }
+  const old = policyRes.rows[0];
+
+  if (old.status === 'active') {
+    throw { status: 400, message: 'Policy is already active' };
+  }
+
+  // 2. Check no other active policy
+  const activeCheck = await query(`
+    SELECT id FROM policies
+    WHERE worker_id = $1 AND status = 'active' AND id != $2
+    LIMIT 1
+  `, [workerId, policyId]);
+
+  if (activeCheck.rows.length) {
+    throw { status: 400, message: 'Worker already has another active policy' };
+  }
+
+  // 3. Recalculate premium with latest worker data
+  const workerRes = await query(`
+    SELECT w.*, z.zone_number
+    FROM workers w
+    LEFT JOIN zones z ON z.id = w.zone_id
+    WHERE w.id = $1
+  `, [workerId]);
+
+  const worker = workerRes.rows[0];
+  const riskMultiplier = await getRiskMultiplier(worker);
+  const pricing = calculatePremium({
+    basePremium:    parseFloat(old.base_premium),
+    zoneNumber:     worker.zone_number || 1,
+    claimFreeWeeks: worker.claim_free_weeks || 0,
+    weeklyIncome:   parseFloat(worker.avg_weekly_earning) || 0,
+    riskMultiplier
+  });
+
+  // 4. Set new dates
+  const startDate = new Date();
+  const endDate   = new Date();
+  endDate.setDate(endDate.getDate() + old.coverage_days);
+
+  // 5. Update policy
+  const { rows } = await query(`
+    UPDATE policies SET
+      status         = 'active',
+      premium        = $1,
+      premium_amount = $1,
+      start_date     = $2,
+      end_date       = $3,
+      zone_adjustment = $4,
+      updated_at     = NOW()
+    WHERE id = $5
+    RETURNING *
+  `, [
+    pricing.finalPremium,
+    startDate.toISOString().split('T')[0],
+    endDate.toISOString().split('T')[0],
+    pricing.zoneAdjustment,
+    policyId
+  ]);
+
+  return {
+    policy:  rows[0],
+    pricing,
+    message: 'Policy renewed successfully'
+  };
+}
+
+/**
+ * CANCEL POLICY
+ * Cancels an active policy
+ */
+async function cancelPolicy(policyId, workerId) {
+  const { rows } = await query(`
+    UPDATE policies SET
+      status     = 'cancelled',
+      updated_at = NOW()
+    WHERE id = $1 AND worker_id = $2 AND status = 'active'
+    RETURNING *
+  `, [policyId, workerId]);
+
+  if (!rows.length) {
+    throw { status: 404, message: 'Active policy not found' };
+  }
+
+  return { message: 'Policy cancelled successfully', policy: rows[0] };
+}
+
+// ─────────────────────────────────────────
+// EXPORTS
+// ─────────────────────────────────────────
 module.exports = {
-  generateQuote, createPolicy, getPolicyById,
-  getWorkerPolicies, renewPolicy, listPlans,
-  PAYOUT_RATIOS,
+  listPlans,
+  generateQuote,
+  createPolicy,
+  getWorkerPolicies,
+  getPolicyById,
+  renewPolicy,
+  cancelPolicy,
+  calculatePremium  // exported for use in claims service later
 };

@@ -7,27 +7,188 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 
-const coverageData = [
-  { type: "Heavy Rain (>20mm)", payout: "60%", max: "₹1,200" },
-  { type: "Poor AQI (>300)", payout: "50%", max: "₹1,000" },
-  { type: "Heatwave (>42°C)", payout: "40%", max: "₹800" },
-  { type: "Platform Outage (>2hr)", payout: "45%", max: "₹900" },
-];
+interface CoverageConfig {
+  [key: string]: {
+    maxPayout: number;
+    coPay: number;
+  };
+}
 
-const pastPolicies = [
-  { id: "POL-2026-0846", period: "17 Feb – 23 Feb 2026", premium: "₹35", claims: 1, payout: "₹450" },
-  { id: "POL-2026-0845", period: "10 Feb – 16 Feb 2026", premium: "₹35", claims: 0, payout: "₹0" },
-  { id: "POL-2026-0844", period: "3 Feb – 9 Feb 2026", premium: "₹32", claims: 2, payout: "₹720" },
-];
+interface Policy {
+  id: string;
+  plan_name: string;
+  premium: string;
+  premium_amount: string;
+  max_payout: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  days_remaining: number;
+  co_payment_percent: string;
+  auto_renew: boolean;
+  zone_adjustment: string;
+  coverage_config: CoverageConfig;
+}
+
+interface PolicyApiResponse {
+  success: boolean;
+  policies: Policy[];
+}
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const Policy = () => {
-  const [autoRenew, setAutoRenew] = useState(true);
+  const navigate = useNavigate();
+  const { token } = useWorkerAuthStore();
+  const [policy, setPolicy] = useState<Policy | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [autoRenew, setAutoRenew] = useState(false);
+  const [renewing, setRenewing] = useState(false);
+
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/policy/my`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data: PolicyApiResponse = await res.json();
+
+        if (data.success && data.policies.length > 0) {
+          const activePolicy = data.policies.find(p => p.status === 'active');
+          if (activePolicy) {
+            setPolicy(activePolicy);
+            setAutoRenew(activePolicy.auto_renew);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch policy:', err);
+        setError('Failed to load policy data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPolicy();
+  }, [token]);
+
+  const handleAutoRenewToggle = async () => {
+    if (!policy || !token) return;
+
+    setRenewing(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/policy/${policy.id}/renew`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setAutoRenew(!autoRenew);
+        // Refresh policy data
+        const refreshRes = await fetch(`${API_BASE}/api/policy/my`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const refreshData: PolicyApiResponse = await refreshRes.json();
+        if (refreshData.success && refreshData.policies.length > 0) {
+          const activePolicy = refreshData.policies.find(p => p.status === 'active');
+          if (activePolicy) {
+            setPolicy(activePolicy);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle auto-renew:', err);
+    } finally {
+      setRenewing(false);
+    }
+  };
+
+  const formatPlanName = (name: string): string => {
+    const nameMap: Record<string, string> = {
+      basic: 'Basic Weekly Plan',
+      standard: 'Standard Weekly Plan',
+      premium: 'Premium Weekly Plan',
+    };
+    return nameMap[name] || `${name.charAt(0).toUpperCase() + name.slice(1)} Weekly Plan`;
+  };
+
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+
+  const formatPremium = (premium: string): string => {
+    return `₹${parseFloat(premium).toFixed(0)}/week`;
+  };
+
+  const formatCoverage = (coverage: string): string => {
+    return `₹${parseFloat(coverage).toLocaleString('en-IN')}`;
+  };
+
+  const getCoverageTypeLabel = (key: string): string => {
+    const labels: Record<string, string> = {
+      heavyRain: 'Heavy Rain (>20mm)',
+      poorAqi: 'Poor AQI (>300)',
+      heatwave: 'Heatwave (>42°C)',
+      platformOutage: 'Platform Outage (>2hr)',
+      strike: 'Strike',
+      curfew: 'Curfew',
+    };
+    return labels[key] || key;
+  };
+
+  if (loading) {
+    return (
+      <WorkerLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <LoadingSpinner />
+        </div>
+      </WorkerLayout>
+    );
+  }
+
+  if (!policy) {
+    return (
+      <WorkerLayout>
+        <div>
+          <PageHeader title="Policy Details" description="Manage your insurance coverage" />
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground mb-4">You don't have an active policy yet.</p>
+              <Button onClick={() => navigate('/plans')}>View Plans</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </WorkerLayout>
+    );
+  }
+
+  const coverageData = policy.coverage_config 
+    ? Object.entries(policy.coverage_config).map(([key, value]) => ({
+        type: getCoverageTypeLabel(key),
+        payout: `${((1 - value.coPay) * 100).toFixed(0)}%`,
+        max: `₹${value.maxPayout.toLocaleString('en-IN')}`,
+      }))
+    : [];
 
   return (
     <WorkerLayout>
@@ -38,23 +199,27 @@ const Policy = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="font-display text-lg">Standard Weekly Plan</CardTitle>
-                <CardDescription>Policy ID: POL-2026-0847</CardDescription>
+                <CardTitle className="font-display text-lg">{formatPlanName(policy.plan_name)}</CardTitle>
+                <CardDescription>Policy ID: {policy.id.slice(0, 8).toUpperCase()}</CardDescription>
               </div>
-              <StatusBadge status="active" />
+              <StatusBadge status={policy.status as 'active' | 'expired'} />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹35/week</p></div>
-              <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹2,000/week</p></div>
-              <div><span className="text-muted-foreground">Valid</span><p className="font-medium">24 Feb – 2 Mar</p></div>
-              <div><span className="text-muted-foreground">Zone</span><p className="font-medium">Bandra, Mumbai</p></div>
+              <div><span className="text-muted-foreground">Premium</span><p className="font-medium">{formatPremium(policy.premium)}</p></div>
+              <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">{formatCoverage(policy.max_payout)}</p></div>
+              <div><span className="text-muted-foreground">Valid</span><p className="font-medium">{formatDate(policy.start_date)} – {formatDate(policy.end_date)}</p></div>
+              <div><span className="text-muted-foreground">Days Remaining</span><p className="font-medium">{policy.days_remaining} days</p></div>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Switch checked={autoRenew} onCheckedChange={setAutoRenew} />
+                <Switch 
+                  checked={autoRenew} 
+                  onCheckedChange={handleAutoRenewToggle} 
+                  disabled={renewing}
+                />
                 <Label>Auto-renew policy</Label>
               </div>
               <Dialog>
@@ -115,25 +280,7 @@ const Policy = () => {
         <Card>
           <CardHeader><CardTitle className="font-display text-lg">Policy History</CardTitle></CardHeader>
           <CardContent>
-            <Accordion type="single" collapsible>
-              {pastPolicies.map((p) => (
-                <AccordionItem key={p.id} value={p.id}>
-                  <AccordionTrigger className="text-sm">
-                    <div className="flex items-center gap-4">
-                      <span className="font-medium">{p.id}</span>
-                      <span className="text-muted-foreground">{p.period}</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid grid-cols-3 gap-4 text-sm pl-4">
-                      <div><span className="text-muted-foreground">Premium</span><p>{p.premium}</p></div>
-                      <div><span className="text-muted-foreground">Claims</span><p>{p.claims}</p></div>
-                      <div><span className="text-muted-foreground">Total Payout</span><p>{p.payout}</p></div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+            <p className="text-muted-foreground text-sm">View your past policies in the claims section.</p>
           </CardContent>
         </Card>
       </div>
@@ -142,3 +289,4 @@ const Policy = () => {
 };
 
 export default Policy;
+

@@ -24,6 +24,7 @@ import RegisterKyc from "./pages/RegisterKyc";
 import RegisterUpi from "./pages/RegisterUpi";
 import Dashboard from "./pages/Dashboard";
 import Policy from "./pages/Policy";
+import Plans from "./pages/Plans";
 import Claims from "./pages/Claims";
 import Payouts from "./pages/Payouts";
 import Profile from "./pages/Profile";
@@ -82,6 +83,9 @@ const App = () => (
             {/* ─── Protected Worker Routes ─── */}
             <Route path="/dashboard" element={
               <RequireWorkerAuth><Dashboard /></RequireWorkerAuth>
+            } />
+            <Route path="/plans" element={
+              <RequireWorkerAuth><Plans /></RequireWorkerAuth>
             } />
             <Route path="/policy" element={
               <RequireWorkerAuth><Policy /></RequireWorkerAuth>

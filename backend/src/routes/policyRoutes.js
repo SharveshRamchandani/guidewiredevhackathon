@@ -1,27 +1,88 @@
-const router = require('express').Router();
-const { body, param } = require('express-validator');
-const ctrl = require('../controllers/policyController');
-const { authenticate } = require('../middleware/auth');
-const { validate } = require('../middleware/validate');
+// ============================================================
+// GigShield — Policy Routes
+// Base: /api/policy
+// ============================================================
 
-router.get('/plans', ctrl.getPlans); // public — list available plans
+const express      = require('express');
+const router       = express.Router();
+const policyService = require('../services/policyService'); // adjust path
+const { requireWorkerAuth } = require('../middleware/authMiddleware'); // adjust path
 
-router.use(authenticate);
+// ─────────────────────────────────────────
+// ERROR HANDLER WRAPPER
+// ─────────────────────────────────────────
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch((err) => {
+    const status  = err.status || 500;
+    const message = err.message || 'Internal server error';
+    res.status(status).json({ success: false, message });
+  });
 
-router.post('/quote',
-  [body('plan_id').notEmpty().withMessage('plan_id (UUID) required')],
-  validate, ctrl.getQuote
-);
-router.post('/create',
-  [
-    body('plan_id').notEmpty().withMessage('plan_id (UUID) required'),
-    body('start_date').optional().isISO8601().withMessage('start_date must be YYYY-MM-DD'),
-    body('auto_renew').optional().isBoolean(),
-  ],
-  validate, ctrl.createPolicy
-);
-router.get('/my',                                                     ctrl.getMyPolicies);
-router.get('/:id', [param('id').notEmpty()],    validate,             ctrl.getPolicy);
-router.post('/:id/renew', [param('id').notEmpty()], validate,         ctrl.renewPolicy);
+// ─────────────────────────────────────────
+// PUBLIC ROUTES (no auth needed)
+// ─────────────────────────────────────────
+
+// GET /api/policy/plans
+// List all available plans
+router.get('/plans', asyncHandler(async (req, res) => {
+  const plans = await policyService.listPlans();
+  res.json({ success: true, plans });
+}));
+
+// ─────────────────────────────────────────
+// PROTECTED ROUTES (worker must be logged in)
+// ─────────────────────────────────────────
+
+// POST /api/policy/quote
+// Get a personalised quote for a plan
+// Body: { plan_id }
+router.post('/quote', requireWorkerAuth, asyncHandler(async (req, res) => {
+  const { plan_id } = req.body;
+  if (!plan_id) {
+    return res.status(400).json({ success: false, message: 'plan_id is required' });
+  }
+  const quote = await policyService.generateQuote(req.worker.id, plan_id);
+  res.json({ success: true, quote });
+}));
+
+// POST /api/policy/create
+// Purchase a policy
+// Body: { plan_id }
+router.post('/create', requireWorkerAuth, asyncHandler(async (req, res) => {
+  const { plan_id } = req.body;
+  if (!plan_id) {
+    return res.status(400).json({ success: false, message: 'plan_id is required' });
+  }
+  const result = await policyService.createPolicy(req.worker.id, plan_id);
+  res.status(201).json({ success: true, ...result });
+}));
+
+// GET /api/policy/my
+// Get all policies for logged in worker
+router.get('/my', requireWorkerAuth, asyncHandler(async (req, res) => {
+  const policies = await policyService.getWorkerPolicies(req.worker.id);
+  res.json({ success: true, policies });
+}));
+
+// GET /api/policy/:id
+// Get specific policy by ID
+router.get('/:id', requireWorkerAuth, asyncHandler(async (req, res) => {
+  const policy = await policyService.getPolicyById(req.params.id, req.worker.id);
+  res.json({ success: true, policy });
+}));
+
+// POST /api/policy/:id/renew
+// Renew an expired/cancelled policy
+router.post('/:id/renew', requireWorkerAuth, asyncHandler(async (req, res) => {
+  const result = await policyService.renewPolicy(req.params.id, req.worker.id);
+  res.json({ success: true, ...result });
+}));
+
+// POST /api/policy/:id/cancel
+// Cancel an active policy
+router.post('/:id/cancel', requireWorkerAuth, asyncHandler(async (req, res) => {
+  const result = await policyService.cancelPolicy(req.params.id, req.worker.id);
+  res.json({ success: true, ...result });
+}));
 
 module.exports = router;
