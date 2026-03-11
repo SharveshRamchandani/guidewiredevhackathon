@@ -8,7 +8,7 @@ def get_aqi(zone_id: str) -> dict:
     severity = round(min(aqi_score / 500, 1.0), 2)
 
     return {
-        "zone_id": int(zone_id),
+        "zone_id": zone_id,
         "aqi_score": aqi_score,
         "threshold_breached": threshold_breached,
         "severity": severity,
