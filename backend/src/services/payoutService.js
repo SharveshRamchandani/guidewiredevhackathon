@@ -1,6 +1,7 @@
-const { query } = require('../config/db');
+const { query }               = require('../config/db');
 const { dequeuePayout, invalidateDashboard } = require('../config/redis');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 }          = require('uuid');
+const eventBus                = require('../events/eventBus'); // RBA event bus
 
 // ─── Simulated Razorpay ───────────────────────────────────────────────────────
 
@@ -73,15 +74,23 @@ async function markPaid(payoutId, gatewayRef) {
       `UPDATE payouts
        SET status = 'completed', completed_at = NOW()
        WHERE id = $1
-       RETURNING claim_id`,
+       RETURNING claim_id, worker_id, amount`,
       [payoutId]
     );
     if (rows.length) {
+      const { claim_id, worker_id, amount } = rows[0];
       // Mark the claim as approved (schema only has pending/approved/rejected)
       await query(
         `UPDATE claims SET updated_at = NOW() WHERE id = $1`,
-        [rows[0].claim_id]
+        [claim_id]
       );
+
+      // ── RBA: notify worker that payout was credited ─────────────────────
+      eventBus.emit('payout:completed', {
+        workerId: worker_id,
+        amount:   parseFloat(amount).toFixed(2),
+        claimId:  claim_id,
+      });
     }
     console.log(`[Payout] ✅ ${gatewayRef || payoutId} completed`);
     await invalidateDashboard();

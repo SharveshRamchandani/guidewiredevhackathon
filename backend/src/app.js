@@ -8,17 +8,23 @@ const { startTriggerEngine } = require('./cron/triggerEngine');
 const { setupPassport } = require('./config/passport');
 
 // Routes
-const authRoutes = require('./routes/authRoutes');
-const policyRoutes = require('./routes/policyRoutes');
-const claimsRoutes = require('./routes/claimsRoutes');
-const payoutRoutes = require('./routes/payoutRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+const authRoutes    = require('./routes/authRoutes');
+const policyRoutes  = require('./routes/policyRoutes');
+const claimsRoutes  = require('./routes/claimsRoutes');
+const payoutRoutes  = require('./routes/payoutRoutes');
+const adminRoutes   = require('./routes/adminRoutes');
+const profileRoutes = require('./routes/profileRoutes'); // Scenario 3: Profile events
 
 // Auth/role routes
 const workerAuthRoutes = require('./routes/workerAuthRoutes');
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+
+// ─── RBA Notification Event Listeners ─────────────────────────────────────────
+// CRITICAL: This must be required to register all eventBus listeners.
+// Without this, no notifications will ever be pushed to Redis.
+require('./events/notificationEvents');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { globalLimiter } = require('./middleware/rateLimiter');
@@ -76,6 +82,7 @@ app.use('/api/admin/auth', adminAuthRoutes);   // public login — no auth requi
 app.use('/api/super-admin', superAdminRoutes); // super_admin protected
 app.use('/api/admin', adminRoutes);            // admin protected (registered last)
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/profile', profileRoutes);        // Scenario 3: profile event notifications
 
 // ─── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) =>

@@ -17,35 +17,56 @@ async function getRedisClient() {
     return null;
   }
 
+  // Capture a local ref so we can force-disconnect the orphaned client
+  // if the Promise.race timeout fires before connect() completes.
+  let _client = null;
+
   try {
-    client = createClient({
+    _client = createClient({
       url: process.env.REDIS_URL,
       socket: {
         connectTimeout: 5000,
-        reconnectStrategy: (retries) => {
-          if (retries >= 3) {
-            console.warn('[Redis] Max retries reached — disabling Redis.');
-            isConnected = false;
-            return false; // stop reconnecting
-          }
-          return Math.min(retries * 500, 2000);
-        },
+        // ─── IMPORTANT ──────────────────────────────────────────────────────
+        // Return false immediately (no retries) on the very first failure.
+        // This prevents the "Max retries reached" + "Reconnecting..." spam
+        // when the host is genuinely unreachable at startup.
+        // If you want background retries after a successful first connect,
+        // handle that in the 'error' listener instead.
+        // ────────────────────────────────────────────────────────────────────
+        reconnectStrategy: false,
       },
     });
 
-    client.on('error',        (err) => { if (isConnected) console.warn('[Redis] Error:', err.message); });
-    client.on('connect',      ()    => { isConnected = true;  console.log('✅ Redis connected'); });
-    client.on('end',          ()    => { isConnected = false; });
-    client.on('reconnecting', ()    => console.warn('[Redis] Reconnecting...'));
+    // Only log errors after we've confirmed a working connection.
+    // This suppresses the flood of ECONNREFUSED / ETIMEDOUT on startup.
+    _client.on('error',   (err) => { if (isConnected) console.warn('[Redis] Error:', err.message); });
+    _client.on('connect', ()    => { isConnected = true; console.log('✅ Redis connected'); });
+    _client.on('end',     ()    => { isConnected = false; });
+    // 'reconnecting' listener intentionally omitted — reconnectStrategy:false means
+    // reconnects won't happen, so this event would never fire in normal operation.
 
     await Promise.race([
-      client.connect(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('connect timeout')), 6000)),
+      _client.connect(),
+      new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('connect timeout')), 6000)
+      ),
     ]);
 
+    // ── Success path ──────────────────────────────────────────────────────────
     isConnected = true;
+    client      = _client;
     return client;
+
   } catch (err) {
+    // ── Failure path ──────────────────────────────────────────────────────────
+    // Force-kill the underlying socket so the orphaned client stops retrying.
+    // Without this, the redis lib's internal loop keeps firing 'reconnecting'
+    // events and eventually logs "Max retries reached" even though we already
+    // gave up and set client = null above.
+    if (_client) {
+      try { await _client.disconnect(); } catch (_) { /* best-effort */ }
+    }
+
     console.warn(`[Redis] Could not connect (${err.message}) — running without cache.`);
     isConnected = false;
     client      = null;

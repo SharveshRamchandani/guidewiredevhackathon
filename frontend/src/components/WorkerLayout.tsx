@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { Shield, LayoutDashboard, FileText, AlertTriangle, Wallet, User, Menu, X, Bell, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,39 @@ export function WorkerLayout() {
     return localStorage.getItem("gigshield:sidebar-collapsed") === "true";
   });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const { worker, logout } = useWorkerAuthStore();
+  const initials = worker?.name
+    ? worker.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
+    : "U";
+
+  // ── Fetch live unread count every 30s ────────────────────────────────────
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const raw   = localStorage.getItem('worker-auth-storage');
+        const token = raw ? JSON.parse(raw)?.state?.token : null;
+        const res   = await fetch('http://localhost:5000/api/notifications/worker/unread-count', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setUnreadCount(json.unreadCount ?? 0);
+        }
+      } catch { /* offline — keep previous count */ }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30_000); // poll every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  // Reset badge when panel opens (user is reading them)
+  const handleNotifOpen = (open: boolean) => {
+    if (open) setUnreadCount(0);
+    setNotificationsOpen(open);
+  };
 
   const toggleSidebarCollapse = () => {
     setIsCollapsed(prev => {
@@ -35,10 +68,6 @@ export function WorkerLayout() {
       return newState;
     });
   };
-  const { worker, logout } = useWorkerAuthStore();
-  const initials = worker?.name
-    ? worker.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
-    : "U";
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
@@ -81,9 +110,13 @@ export function WorkerLayout() {
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="ghost" size="icon" className="relative" onClick={() => setNotificationsOpen(true)}>
+            <Button variant="ghost" size="icon" className="relative" onClick={() => handleNotifOpen(true)}>
               <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px]">3</Badge>
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] animate-in zoom-in">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Badge>
+              )}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -108,7 +141,7 @@ export function WorkerLayout() {
       {/* Mobile Nav Dock */}
       <MobileNavDock items={navItems} />
 
-      <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+      <NotificationsPanel open={notificationsOpen} onOpenChange={handleNotifOpen} />
     </div>
   );
 }
