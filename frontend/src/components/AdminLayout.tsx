@@ -29,6 +29,8 @@ import { useToast } from "@/hooks/use-toast";
 
 import { sidebarGroups, platformGroup } from "@/config/adminNavConfig";
 import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
+import { NotificationsPanel } from "@/components/NotificationsPanel";
+import { useEffect } from "react";
 export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,6 +50,40 @@ export function AdminLayout() {
   };
   const name = admin?.name || "Admin User";
   const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || (showSuperAdmin ? "SA" : "AD");
+
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // ── Fetch live unread count every 30s ────────────────────────────────────
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const adminRaw = localStorage.getItem('admin-auth-storage');
+        const token    = adminRaw ? JSON.parse(adminRaw)?.state?.token : null;
+        
+        let endpoint = showSuperAdmin 
+          ? 'http://localhost:5000/api/notifications/superadmin/unread-count'
+          : 'http://localhost:5000/api/notifications/admin/unread-count';
+
+        const res = await fetch(endpoint, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setUnreadCount(json.unreadCount ?? 0);
+        }
+      } catch { /* offline */ }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30_000);
+    return () => clearInterval(interval);
+  }, [showSuperAdmin]);
+
+  const handleNotifOpen = (open: boolean) => {
+    if (open) setUnreadCount(0);
+    setNotificationsOpen(open);
+  };
 
   // Route guard logic for super_admin features
   const isSuperAdminRoute = location.pathname.startsWith('/admin/staff') || location.pathname.startsWith('/admin/platform');
@@ -203,14 +239,14 @@ export function AdminLayout() {
           {/* Right Section */}
           <div className="flex items-center gap-1 sm:gap-2">
             {/* Notifications */}
-            <Button variant="ghost" size="icon" className="h-9 w-9 relative" asChild>
-              <Link to="/admin/events">
-                <Bell className="h-5 w-5" />
-                <Badge className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center">
-                  3
+            <Button variant="ghost" size="icon" className="h-9 w-9 relative" onClick={() => handleNotifOpen(true)}>
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <Badge className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center animate-in zoom-in">
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </Badge>
-                <span className="sr-only">Notifications</span>
-              </Link>
+              )}
+              <span className="sr-only">Notifications</span>
             </Button>
 
             <ThemeToggle />
@@ -243,6 +279,8 @@ export function AdminLayout() {
 
       {/* Admin Mobile Nav Dock */}
       <AdminMobileNavDock />
+
+      <NotificationsPanel open={notificationsOpen} onOpenChange={handleNotifOpen} />
     </div>
   );
 }

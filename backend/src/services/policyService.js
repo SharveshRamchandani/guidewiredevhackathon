@@ -1,5 +1,6 @@
-const mlClient = require('../config/mlClient');
+const mlClient  = require('../config/mlClient');
 const { query } = require('../config/db');
+const eventBus  = require('../events/eventBus'); // RBA event bus
 
 // ─── Claim type → payout ratio (matching actual schema types) ─────────────────
 const PAYOUT_RATIOS = {
@@ -120,6 +121,13 @@ async function createPolicy({ workerId, planId, startDate, autoRenew = true }) {
     [policyNumber, workerId, planId, quote.weekly_premium, quote.max_coverage,
      autoRenew, start, end, coverageSnapshot ? JSON.stringify(coverageSnapshot) : null]
   );
+
+  // ── RBA: policy created / upgraded ────────────────────────────────────────
+  eventBus.emit('policy:upgraded', {
+    workerId,
+    planName: plans[0]?.coverage_config?.plan_name || policyNumber,
+  });
+
   return rows[0];
 }
 
@@ -172,6 +180,10 @@ async function renewPolicy(policyId, workerId) {
      RETURNING *`,
     [newStart, newEnd, quote.weekly_premium, policyId]
   );
+
+  // ── RBA: policy auto-renewed ─────────────────────────────────────────────
+  eventBus.emit('policy:renewed', { workerId });
+
   return rows[0];
 }
 

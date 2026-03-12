@@ -19,6 +19,7 @@ const workerNavItems = [
   { label: "Claims", path: "/claims" },
   { label: "Payouts", path: "/payouts" },
   { label: "Profile", path: "/profile" },
+  { label: "Notifications", path: "/notifications" },
 ];
 
 export function WorkerNav() {

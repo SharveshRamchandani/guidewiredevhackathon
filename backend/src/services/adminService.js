@@ -3,6 +3,7 @@ const {
   cacheDashboard, getDashboard, invalidateDashboard,
   cacheConfig,
 } = require('../config/redis');
+const eventBus = require('../events/eventBus'); // RBA event bus
 
 // ─── Dashboard KPIs ───────────────────────────────────────────────────────────
 
@@ -109,6 +110,79 @@ async function updateWorkerKyc(workerId, status, adminId) {
   );
   await invalidateDashboard();
   return rows[0];
+}
+
+/**
+ * Flag a worker account (Scenario 4 — ADMIN ACTION).
+ * Emits account:flagged which notifies both the worker and all admins.
+ */
+async function flagWorkerAccount(workerId, adminId, reason) {
+  const { rows } = await query(
+    `UPDATE workers SET active = FALSE, updated_at = NOW()
+     WHERE id = $1 RETURNING id, name`,
+    [workerId]
+  );
+  if (!rows.length) { const e = new Error('Worker not found.'); e.statusCode = 404; throw e; }
+
+  await query(
+    `INSERT INTO audit_logs (user_id, user_type, action, field, new_value, created_at)
+     VALUES ($1, 'admin', 'flag_account', 'active', 'false', NOW())`,
+    [adminId]
+  );
+
+  // ── RBA: account flagged ────────────────────────────────────────────────
+  eventBus.emit('account:flagged', { workerId: String(workerId), adminId: adminId ? String(adminId) : undefined });
+
+  await invalidateDashboard();
+  return rows[0];
+}
+
+/**
+ * Initiate fraud review (Scenario 4 — ADMIN ACTION).
+ */
+async function initiateFraudReview(claimId, workerId, adminId) {
+  eventBus.emit('fraud:review_started', {
+    workerId: String(workerId),
+    claimId:  String(claimId),
+    adminId:  adminId ? String(adminId) : undefined,
+  });
+}
+
+/**
+ * Complete fraud review — accepted (Scenario 4 — ADMIN ACTION).
+ */
+async function completeFraudReviewAccepted(claimId, workerId, adminId) {
+  eventBus.emit('fraud:review_accepted', {
+    workerId: String(workerId),
+    claimId:  String(claimId),
+    adminId:  adminId ? String(adminId) : undefined,
+  });
+}
+
+/**
+ * Complete fraud review — rejected (Scenario 4 — ADMIN ACTION).
+ */
+async function completeFraudReviewRejected(claimId, workerId, adminId, penaltyCredits = 0) {
+  eventBus.emit('fraud:review_rejected', {
+    workerId:       String(workerId),
+    claimId:        String(claimId),
+    penaltyCredits: penaltyCredits,
+    adminId:        adminId ? String(adminId) : undefined,
+  });
+}
+
+/**
+ * Notify all admins that a new staff member was added (Scenario 5).
+ */
+async function notifyStaffAdded(staffName) {
+  eventBus.emit('staff:added', { staffName });
+}
+
+/**
+ * Notify all admins that a staff role changed (Scenario 5).
+ */
+async function notifyStaffRoleChanged(staffId, newRole) {
+  eventBus.emit('staff:role_changed', { staffId: String(staffId), newRole });
 }
 
 // ─── Policies ─────────────────────────────────────────────────────────────────
@@ -255,4 +329,8 @@ module.exports = {
   listDisruptionEvents,
   getAnalytics,
   getSystemConfig, updateSystemConfig,
+  // RBA helpers (Scenario 4 + 5)
+  flagWorkerAccount,
+  initiateFraudReview, completeFraudReviewAccepted, completeFraudReviewRejected,
+  notifyStaffAdded, notifyStaffRoleChanged,
 };

@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const { query } = require('../config/db');
 const jwtService = require('./jwtService');
 const { AppError } = require('./jwtService');
+const eventBus = require('../events/eventBus');
 
 const BCRYPT_ROUNDS = 12;
 
@@ -146,6 +147,9 @@ async function createAdmin(data, createdById) {
 
     // 4. Audit log
     await insertAuditLog(createdById, 'ADMIN_STAFF_CREATED', 'admin_user', admin.id, null, { email, jobTitle });
+
+    // 4b. Emit RBA Event for Notifications
+    eventBus.emit('staff:added', { staffName: name });
 
     // 5. Build setup link
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
