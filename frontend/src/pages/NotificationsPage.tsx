@@ -29,6 +29,8 @@ interface Notification {
   isFavorite: boolean;
   isArchived: boolean;
   type?: 'success' | 'warning' | 'alert' | 'info';
+  role?: string;
+  userId?: string;
 }
 
 const mockWorkerNotifications: Notification[] = [
@@ -72,62 +74,25 @@ const mockWorkerNotifications: Notification[] = [
 
 const mockAdminNotifications: Notification[] = [
   {
-    id: "a-1",
-    message: "Alert: Weather-triggered parametric payout executed for W-102 (₹450) in Bandra zone.",
-    timestamp: "15 min ago",
+    id: "a-0",
+    message: "Platform Update: New dashboard metrics for claim tracking are now live.",
+    timestamp: new Date(Date.now() - 300000).toISOString(),
     isRead: false,
     isFavorite: true,
     isArchived: false,
     type: 'info'
   },
-  {
-    id: "a-2",
-    message: "Fraud Alert: Suspicious claim CLM-008 submitted by W-102. Account flagged for manual review.",
-    timestamp: "1 day ago",
-    isRead: false,
-    isFavorite: false,
-    isArchived: false,
-    type: 'alert'
-  },
-  {
-    id: "a-3",
-    message: "New worker W-105 registration pending KYC verification.",
-    timestamp: "2 days ago",
-    isRead: true,
-    isFavorite: false,
-    isArchived: true,
-    type: 'info'
-  }
+  { id: "a1", message: "Fraud Alert: Unusual claim activity detected for Worker W-402.", type: "alert", timestamp: new Date(Date.now() - 1800000).toISOString(), isRead: false, isFavorite: false, isArchived: false, role: "admin", userId: "demo" },
+  { id: "a2", message: "Pending Review: 15 new claims require your approval today.", type: "warning", timestamp: new Date(Date.now() - 5400000).toISOString(), isRead: false, isFavorite: false, isArchived: false, role: "admin", userId: "demo" },
+  { id: "a3", message: "KYC Verified: Worker W-509 has submitted valid documents.", type: "success", timestamp: new Date(Date.now() - 28800000).toISOString(), isRead: true, isFavorite: false, isArchived: false, role: "admin", userId: "demo" },
+  { id: "a4", message: "System Update: New dashboard filters for payout tracking are live.", type: "info", timestamp: new Date(Date.now() - 86400000).toISOString(), isRead: true, isFavorite: false, isArchived: false, role: "admin", userId: "demo" },
 ];
 
 const mockSuperAdminNotifications: Notification[] = [
-  {
-    id: "sa-1",
-    message: "Platform Alert: Reserve payout pool running low. Requires top-up.",
-    timestamp: "10 min ago",
-    isRead: false,
-    isFavorite: true,
-    isArchived: false,
-    type: 'alert'
-  },
-  {
-    id: "sa-2",
-    message: "ML Model training completed successfully using recent sales data.",
-    timestamp: "1 hour ago",
-    isRead: false,
-    isFavorite: false,
-    isArchived: false,
-    type: 'success'
-  },
-  {
-    id: "sa-3",
-    message: "Admin activity report generated for last week.",
-    timestamp: "3 days ago",
-    isRead: true,
-    isFavorite: false,
-    isArchived: true,
-    type: 'info'
-  }
+  { id: "s1", message: "Critical: Low reserve funds detected in the payout wallet.", type: "alert", timestamp: new Date(Date.now() - 900000).toISOString(), isRead: false, isFavorite: false, isArchived: false, role: "superadmin", userId: "demo" },
+  { id: "s2", message: "ML Model: Precision increased to 98.4% after the latest training cycle.", type: "success", timestamp: new Date(Date.now() - 10800000).toISOString(), isRead: false, isFavorite: false, isArchived: false, role: "superadmin", userId: "demo" },
+  { id: "s3", message: "Governance: Staff member 'A. Sharma' promoted to Manager role.", type: "info", timestamp: new Date(Date.now() - 43200000).toISOString(), isRead: false, isFavorite: false, isArchived: false, role: "superadmin", userId: "demo" },
+  { id: "s4", message: "Infrastructure: Database backup completed successfully (Snapshot #402).", type: "success", timestamp: new Date(Date.now() - 172800000).toISOString(), isRead: true, isFavorite: false, isArchived: false, role: "superadmin", userId: "demo" },
 ];
 
 export default function NotificationsPage() {
@@ -135,18 +100,22 @@ export default function NotificationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
 
-  // Determine which dummy data to show based on the route
+  // Choose the right dummy set based on URL
   let initialData = mockWorkerNotifications;
+  let currentRoleName = "Worker";
+
   if (location.pathname.includes('/admin/platform') || location.pathname.includes('/admin/staff')) {
     initialData = mockSuperAdminNotifications;
+    currentRoleName = "Super Admin";
   } else if (location.pathname.includes('/admin')) {
     initialData = mockAdminNotifications;
+    currentRoleName = "Admin";
   }
 
-  const { data: apiNotifications = [], isLoading } = useQuery({
+  const { data: apiResponse, isLoading, isError } = useQuery({
     queryKey: ["notifications", location.pathname],
     queryFn: async () => {
-      // Determine the correct endpoint based on the route role
+      // Determine the correct endpoint based on the current route's role
       let endpoint = "http://localhost:5000/api/notifications/worker";
       if (location.pathname.includes('/admin/platform') || location.pathname.includes('/admin/staff')) {
         endpoint = "http://localhost:5000/api/notifications/superadmin";
@@ -154,28 +123,43 @@ export default function NotificationsPage() {
         endpoint = "http://localhost:5000/api/notifications/admin";
       }
 
-      // We need to pass the JWT token to authenticate the request
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || (() => {
+        try {
+          const w = JSON.parse(localStorage.getItem('worker-auth-storage') || '{}')?.state?.token;
+          const a = JSON.parse(localStorage.getItem('admin-auth-storage') || '{}')?.state?.token;
+          return w || a || null;
+        } catch { return null; }
+      })();
 
       const res = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error("Failed to fetch notifications");
-      return res.json();
-    }
+      const json = await res.json();
+      // Backend returns { success, count, data: [...] }
+      return Array.isArray(json) ? json : (json.data ?? []);
+    },
+    retry: 1,
+    staleTime: 10_000,
   });
 
+  // apiResponse is the array from backend (or undefined while loading)
+  const apiNotifications: Notification[] = Array.isArray(apiResponse) ? apiResponse : [];
   // Initialize with role-based dummy data by default
   const [localNotifications, setLocalNotifications] = useState<Notification[]>(initialData);
 
-  // Update local state when API data changes
+  // Merge: real API notifications take priority over mock data.
+  // If the API returned something, show it; otherwise fall back to role-based mock data
+  // so the page never looks empty during a demo.
   useEffect(() => {
     if (apiNotifications.length > 0) {
       setLocalNotifications(apiNotifications);
+    } else if (!isLoading) {
+      // API returned empty (Redis offline + no events triggered yet) — keep mocks visible
+      setLocalNotifications(initialData);
     }
-  }, [apiNotifications]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiNotifications, isLoading]);
 
   // Use localNotifications directly so dummy data persists visually if API fails/empty
   const notifications = localNotifications;
@@ -216,6 +200,15 @@ export default function NotificationsPage() {
           <div className="flex items-center gap-3">
             <IconBell className="size-6" />
             <CardTitle className="text-xl font-semibold">List Notification</CardTitle>
+            {/* Live vs Demo badge */}
+            {!isLoading && (
+              <Badge
+                variant={apiNotifications.length > 0 ? "default" : "secondary"}
+                className="text-[10px] px-2 py-0.5"
+              >
+                {apiNotifications.length > 0 ? "🟢 LIVE" : "🔵 DEMO DATA"}
+              </Badge>
+            )}
           </div>
           <Button variant="ghost" size="icon">
             <IconDotsVertical className="size-5" />
