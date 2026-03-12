@@ -38,7 +38,7 @@ async function generateQuote({ workerId, planId }) {
 
   // Validate plan exists
   const { rows: plans } = await query(
-    'SELECT id, name, weekly_premium, max_coverage, coverage_config FROM plans WHERE id = $1',
+    'SELECT id, name, base_premium, max_payout, coverage_days, coverage_config FROM plans WHERE id = $1 AND is_active = true',
     [planId]
   );
   if (!plans.length) {
@@ -75,9 +75,9 @@ async function generateQuote({ workerId, planId }) {
     riskLabel = riskScore < 0.35 ? 'low' : riskScore < 0.65 ? 'medium' : 'high';
   }
 
-  // Premium = plan.weekly_premium * (1 + riskScore * 0.5) — max 1.5x at risk=1.0
+  // Premium = plan.base_premium * (1 + riskScore * 0.5) — max 1.5x at risk=1.0
   const scaledPremium = Math.round(
-    parseFloat(plan.weekly_premium) * (1 + riskScore * 0.5)
+    parseFloat(plan.base_premium) * (1 + riskScore * 0.5)
   );
 
   return {
@@ -87,7 +87,7 @@ async function generateQuote({ workerId, planId }) {
     risk_score:     riskScore,
     risk_label:     riskLabel,
     weekly_premium: scaledPremium,
-    max_coverage:   parseFloat(plan.max_coverage),
+    max_coverage:   parseFloat(plan.max_payout),
     valid_for_hours: 24,
   };
 }
@@ -144,7 +144,7 @@ async function getPolicyById(policyId, workerId = null) {
 
 async function getWorkerPolicies(workerId) {
   const { rows } = await query(
-    `SELECT p.*, pl.name AS plan_name, pl.max_coverage, pl.weekly_premium AS base_premium
+    `SELECT p.*, pl.name AS plan_name, pl.max_payout AS max_coverage, pl.base_premium AS base_premium
      FROM policies p
      JOIN plans pl ON pl.id = p.plan_id
      WHERE p.worker_id = $1
@@ -179,7 +179,7 @@ async function renewPolicy(policyId, workerId) {
 
 async function listPlans() {
   const { rows } = await query(
-    'SELECT id, name, weekly_premium, max_coverage, coverage_config FROM plans ORDER BY weekly_premium ASC'
+    'SELECT id, name, base_premium, max_payout, coverage_config FROM plans ORDER BY base_premium ASC'
   );
   return rows;
 }

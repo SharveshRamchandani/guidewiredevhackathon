@@ -31,6 +31,7 @@ import Policy from "./pages/Policy";
 import Claims from "./pages/Claims";
 import Payouts from "./pages/Payouts";
 import Profile from "./pages/Profile";
+import Plans from "./pages/Plans";
 
 // Admin pages
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -63,7 +64,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
 
             {/* ─── Public Worker Routes ─── */}
@@ -92,6 +93,7 @@ const App = () => (
               <Route path="/claims" element={<Claims />} />
               <Route path="/payouts" element={<Payouts />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/plans" element={<Plans />} />
             </Route>
 
             {/* ─── Public Admin Routes ─── */}

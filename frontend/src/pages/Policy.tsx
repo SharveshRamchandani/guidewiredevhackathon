@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const coverageData = [
   { type: "Heavy Rain (>20mm)", payout: "60%", max: "₹1,200" },
@@ -27,6 +28,7 @@ const pastPolicies = [
 
 const Policy = () => {
   const [autoRenew, setAutoRenew] = useState(true);
+  const navigate = useNavigate();
 
   return (
       <div>
@@ -56,7 +58,9 @@ const Policy = () => {
                 <Label>Auto-renew policy</Label>
               </div>
               <Dialog>
-                <DialogTrigger asChild><Button variant="outline">Upgrade Plan</Button></DialogTrigger>
+                <Button variant="outline" onClick={() => navigate("/plans")}>
+                    Upgrade Plan
+                    </Button>
                 <DialogContent className="max-w-lg">
                   <DialogHeader><DialogTitle className="font-display">Choose a Plan</DialogTitle></DialogHeader>
                   <RadioGroup defaultValue="standard" className="space-y-3">
