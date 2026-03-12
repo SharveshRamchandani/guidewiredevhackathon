@@ -65,8 +65,8 @@ const Plans = () => {
       .then(r => r.json())
       .then(d => {
         console.log("API response:", d);
-        console.log("First plan:", d.data?.[0]);
-        if (d.success && Array.isArray(d.data)) setPlans(d.data);
+        console.log("First plan:", d.plans?.[0]);
+        if (d.success && Array.isArray(d.plans)) setPlans(d.plans);
         else setError("Failed to load plans");
       })
       .catch(() => setError("Could not connect to server"))

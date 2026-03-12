@@ -406,7 +406,46 @@ async function renewPolicy(policyId, workerId) {
      RETURNING *`,
     [newStart, newEnd, quote.weekly_premium, policyId]
   );
+
   return rows[0];
+}
+
+/**
+ * CANCEL POLICY
+ * Cancels an active policy for a worker
+ */
+async function cancelPolicy(policyId, workerId) {
+
+  // 1. Find the existing policy
+  const policyRes = await query(`
+    SELECT pol.*, pl.name AS plan_name
+    FROM policies pol
+    JOIN plans pl ON pl.id = pol.plan_id
+    WHERE pol.id = $1 AND pol.worker_id = $2
+  `, [policyId, workerId]);
+
+  if (!policyRes.rows.length) {
+    throw { status: 404, message: 'Policy not found' };
+  }
+  const policy = policyRes.rows[0];
+
+  if (policy.status !== 'active') {
+    throw { status: 400, message: 'Only active policies can be cancelled' };
+  }
+
+  // 2. Cancel the policy
+  const { rows } = await query(
+    `UPDATE policies
+     SET status = 'cancelled', updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [policyId]
+  );
+
+  return {
+    policy: rows[0],
+    message: 'Policy cancelled successfully'
+  };
 }
 
 // ─────────────────────────────────────────
