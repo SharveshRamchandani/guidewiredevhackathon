@@ -14,6 +14,10 @@ import {
   RedirectIfWorkerAuthed,
 } from "@/components/ProtectedRoutes";
 
+// Layouts
+import { AdminLayout } from "@/components/AdminLayout";
+import { WorkerLayout } from "@/components/WorkerLayout";
+
 // Worker pages
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -46,6 +50,8 @@ import AdminPlatformStats from "./pages/admin/AdminPlatformStats";
 import AdminGlobalSettings from "./pages/admin/AdminGlobalSettings";
 import AdminStaff from "./pages/admin/AdminStaff";
 import AdminCreateStaff from "./pages/admin/AdminCreateStaff";
+import AdminCompanies from "./pages/admin/AdminCompanies";
+import AdminCompanyDetail from "./pages/admin/AdminCompanyDetail";
 
 import NotFound from "./pages/NotFound";
 import NotAuthorizedPage from "./pages/NotAuthorizedPage";
@@ -58,7 +64,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
 
             {/* ─── Public Worker Routes ─── */}
@@ -80,25 +86,15 @@ const App = () => (
             <Route path="/register/kyc" element={<RegisterKyc />} />
             <Route path="/register/upi" element={<RegisterUpi />} />
 
-            {/* ─── Protected Worker Routes ─── */}
-            <Route path="/dashboard" element={
-              <RequireWorkerAuth><Dashboard /></RequireWorkerAuth>
-            } />
-            <Route path="/plans" element={
-              <RequireWorkerAuth><Plans /></RequireWorkerAuth>
-            } />
-            <Route path="/policy" element={
-              <RequireWorkerAuth><Policy /></RequireWorkerAuth>
-            } />
-            <Route path="/claims" element={
-              <RequireWorkerAuth><Claims /></RequireWorkerAuth>
-            } />
-            <Route path="/payouts" element={
-              <RequireWorkerAuth><Payouts /></RequireWorkerAuth>
-            } />
-            <Route path="/profile" element={
-              <RequireWorkerAuth><Profile /></RequireWorkerAuth>
-            } />
+            {/* ─── Protected Worker Routes (layout stays mounted) ─── */}
+            <Route element={<RequireWorkerAuth><WorkerLayout /></RequireWorkerAuth>}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/policy" element={<Policy />} />
+              <Route path="/claims" element={<Claims />} />
+              <Route path="/payouts" element={<Payouts />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/plans" element={<Plans />} />
+            </Route>
 
             {/* ─── Public Admin Routes ─── */}
             <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
@@ -112,48 +108,26 @@ const App = () => (
             <Route path="/admin/oauth/callback" element={<AdminOAuthCallback />} />
             <Route path="/admin/setup" element={<AdminSetup />} />
 
-            {/* ─── Protected Admin Routes (admin + super_admin) ─── */}
-            <Route path="/admin/dashboard" element={
-              <RequireAdminAuth><AdminDashboard /></RequireAdminAuth>
-            } />
-            <Route path="/admin/workers" element={
-              <RequireAdminAuth><AdminWorkers /></RequireAdminAuth>
-            } />
-            <Route path="/admin/policies" element={
-              <RequireAdminAuth><AdminPolicies /></RequireAdminAuth>
-            } />
-            <Route path="/admin/claims" element={
-              <RequireAdminAuth><AdminClaims /></RequireAdminAuth>
-            } />
-            <Route path="/admin/events" element={
-              <RequireAdminAuth><AdminEvents /></RequireAdminAuth>
-            } />
-            <Route path="/admin/cron" element={
-              <RequireAdminAuth><AdminCron /></RequireAdminAuth>
-            } />
-            <Route path="/admin/analytics" element={
-              <RequireAdminAuth><AdminAnalytics /></RequireAdminAuth>
-            } />
-            <Route path="/admin/fraud" element={
-              <RequireAdminAuth><AdminFraud /></RequireAdminAuth>
-            } />
-            <Route path="/admin/profile" element={
-              <RequireAdminAuth><AdminProfile /></RequireAdminAuth>
-            } />
+            {/* ─── Protected Admin Routes (layout stays mounted) ─── */}
+            <Route element={<RequireAdminAuth><AdminLayout /></RequireAdminAuth>}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/workers" element={<AdminWorkers />} />
+              <Route path="/admin/policies" element={<AdminPolicies />} />
+              <Route path="/admin/claims" element={<AdminClaims />} />
+              <Route path="/admin/events" element={<AdminEvents />} />
+              <Route path="/admin/cron" element={<AdminCron />} />
+              <Route path="/admin/analytics" element={<AdminAnalytics />} />
+              <Route path="/admin/fraud" element={<AdminFraud />} />
+              <Route path="/admin/profile" element={<AdminProfile />} />
 
-            {/* ─── Super Admin-Only Routes ─── */}
-            <Route path="/admin/staff" element={
-              <RequireSuperAdmin><AdminStaff /></RequireSuperAdmin>
-            } />
-            <Route path="/admin/staff/new" element={
-              <RequireSuperAdmin><AdminCreateStaff /></RequireSuperAdmin>
-            } />
-            <Route path="/admin/platform" element={
-              <RequireSuperAdmin><AdminPlatformStats /></RequireSuperAdmin>
-            } />
-            <Route path="/admin/platform/settings" element={
-              <RequireSuperAdmin><AdminGlobalSettings /></RequireSuperAdmin>
-            } />
+              {/* ─── Super Admin-Only Routes ─── */}
+              <Route path="/admin/staff" element={<RequireSuperAdmin><AdminStaff /></RequireSuperAdmin>} />
+              <Route path="/admin/staff/new" element={<RequireSuperAdmin><AdminCreateStaff /></RequireSuperAdmin>} />
+              <Route path="/admin/platform" element={<RequireSuperAdmin><AdminPlatformStats /></RequireSuperAdmin>} />
+              <Route path="/admin/platform/settings" element={<RequireSuperAdmin><AdminGlobalSettings /></RequireSuperAdmin>} />
+              <Route path="/admin/companies" element={<RequireSuperAdmin><AdminCompanies /></RequireSuperAdmin>} />
+              <Route path="/admin/companies/:id" element={<RequireSuperAdmin><AdminCompanyDetail /></RequireSuperAdmin>} />
+            </Route>
 
             <Route path="*" element={<NotFound />} />
             <Route path="/not-authorized" element={<NotAuthorizedPage />} />

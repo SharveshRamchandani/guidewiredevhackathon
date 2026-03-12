@@ -1,4 +1,3 @@
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +42,7 @@ const premiumData = [
 
 const AdminDashboard = () => {
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Admin Dashboard" description="Overview of GigShield operations" />
 
       {/* KPIs */}
@@ -169,8 +168,7 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
-  );
+    </>  );
 };
 
 export default AdminDashboard;

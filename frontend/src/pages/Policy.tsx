@@ -1,4 +1,3 @@
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -505,7 +504,6 @@ const Policy = () => {
       : `-₹${Math.abs(zoneAdj).toFixed(2)}`;
 
   return (
-    <WorkerLayout>
       <div>
         <PageHeader
           title="Policy Details"
@@ -704,7 +702,6 @@ const Policy = () => {
           </CardContent>
         </Card>
       </div>
-    </WorkerLayout>
   );
 };
 

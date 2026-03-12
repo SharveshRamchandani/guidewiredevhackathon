@@ -1,11 +1,11 @@
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 import { Check } from "lucide-react";
+
 
 interface CoverageEvent {
   maxPayout: number;
@@ -16,11 +16,15 @@ interface CoverageEvent {
 interface Plan {
   id: string;
   name: string;
-  base_premium: string;
-  max_payout: string;
+  base_premium?: string | number;
+  weekly_premium?: string | number;
+  max_payout?: string | number;
+  max_coverage?: string | number;
   coverage_days: number;
-  coverage_config: Record<string, CoverageEvent>;
+  coverage_config: Record<string, CoverageEvent> | string;
 }
+
+
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -49,51 +53,25 @@ const PLAN_META: Record<string, {
 
 const Plans = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { token } = useWorkerAuthStore();
   const [plans, setPlans]         = useState<Plan[]>([]);
   const [loading, setLoading]     = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [error, setError]         = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const plansRef = useRef<Plan[]>([]);
-
-  // Check if we're in upgrade mode
-  const isUpgradeMode = searchParams.get('upgrade') === 'true';
-  const currentPlanId = searchParams.get('currentPlan') || '';
 
   useEffect(() => {
     fetch(`${API_BASE}/api/policy/plans`)
       .then(r => r.json())
-      .then(d => { 
-        if (d.success) {
-          setPlans(d.plans);
-          plansRef.current = d.plans;
-        } else {
-          setError("Failed to load plans");
-        }
+      .then(d => {
+        console.log("API response:", d);
+        console.log("First plan:", d.data?.[0]);
+        if (d.success && Array.isArray(d.data)) setPlans(d.data);
+        else setError("Failed to load plans");
       })
       .catch(() => setError("Could not connect to server"))
       .finally(() => setLoading(false));
   }, []);
-
-  // Auto-select current plan in upgrade mode
-  useEffect(() => {
-    if (isUpgradeMode && plansRef.current.length > 0 && currentPlanId) {
-      const currentPlan = plansRef.current.find(p => p.id === currentPlanId);
-      if (currentPlan) {
-        // Scroll to a different plan (not current one) to encourage upgrade
-        const nextPlanIndex = plansRef.current.findIndex(p => p.id !== currentPlanId);
-        if (nextPlanIndex >= 0) {
-          const element = document.getElementById(`plan-${plansRef.current[nextPlanIndex].id}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }
-      }
-    }
-  }, [loading, isUpgradeMode, currentPlanId]);
-
   const handleSelect = async (planId: string) => {
     if (!token) { navigate("/login"); return; }
     setPurchasing(planId);
@@ -106,22 +84,19 @@ const Plans = () => {
       });
       const data = await res.json();
       if (data.success) {
-        setSuccessMsg("Plan upgraded! Redirecting to your policy...");
-        setTimeout(() => {
-          // Clear URL params and navigate to policy
-          navigate("/policy", { replace: true });
-        }, 1500);
+        setSuccessMsg("Plan activated! Redirecting to your policy...");
+        setTimeout(() => navigate("/policy"), 1500);
       } else {
         setError(data.message?.toLowerCase().includes("already has an active policy")
           ? "You already have an active policy. Visit Policy page to manage it."
-          : data.message || "Failed to upgrade plan");
+          : data.message || "Failed to purchase plan");
       }
     } catch { setError("Something went wrong. Please try again."); }
     finally   { setPurchasing(null); }
   };
 
   if (loading) return (
-    <WorkerLayout>
+    <div>
       <PageHeader title="Choose a Plan" description="Weekly income protection for gig workers" />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
         {[1,2,3,4].map(i => (
@@ -134,13 +109,12 @@ const Plans = () => {
           </div>
         ))}
       </div>
-    </WorkerLayout>
+    </div>
   );
 
   return (
-    <WorkerLayout>
-      <div>
-        <PageHeader title="Choose a Plan" description="Weekly income protection designed for gig workers in India" />
+    <div>
+      <PageHeader title="Choose a Plan" description="Weekly income protection designed for gig workers in India" />
 
         {error && (
           <div className="mb-5 p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
@@ -154,15 +128,17 @@ const Plans = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-          {plans.map((plan) => {
+          {(plans || []).map((plan) => {
             const meta   = PLAN_META[plan.name] || PLAN_META.basic;
-            const events = Object.entries(plan.coverage_config || {});
-            const coPay  = events.length > 0 ? events[0][1].coPay * 100 : 0;
+            const coverageConfig = (typeof plan.coverage_config === 'string' 
+              ? JSON.parse(plan.coverage_config) 
+              : plan.coverage_config) as Record<string, CoverageEvent>;
+            const events = Object.entries(coverageConfig || {});
+            const coPay  = events.length > 0 ? (events[0][1] as CoverageEvent).coPay * 100 : 0;
             const isBuying = purchasing === plan.id;
 
             return (
               <div
-                id={`plan-${plan.id}`}
                 key={plan.id}
                 className={`relative flex flex-col rounded-2xl border-2 ${meta.borderClass} bg-card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden`}
               >
@@ -189,12 +165,12 @@ const Plans = () => {
                   <div className="mb-1">
                     <div className="flex items-end gap-1">
                       <span className="text-5xl font-bold font-display leading-none">
-                        ₹{parseFloat(plan.base_premium).toFixed(0)}
+                        ₹{parseFloat(String(plan.base_premium ?? plan.weekly_premium ?? 0)).toFixed(0)}
                       </span>
                       <span className="text-muted-foreground text-sm mb-1">/week</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      ≈ ₹{(parseFloat(plan.base_premium) * 4).toFixed(0)}/month
+                      ≈ ₹{(parseFloat(String(plan.base_premium ?? plan.weekly_premium ?? 0)) * 4).toFixed(0)}/month
                     </p>
                   </div>
 
@@ -204,7 +180,7 @@ const Plans = () => {
                   <div className="grid grid-cols-2 gap-2 mb-5">
                     <div className="rounded-xl bg-muted/50 p-3 text-center">
                       <p className="text-xs text-muted-foreground mb-1">Max Payout</p>
-                      <p className="font-bold text-sm">₹{parseFloat(plan.max_payout).toLocaleString("en-IN")}</p>
+                      <p className="font-bold text-sm">₹{parseFloat(String(plan.max_payout ?? plan.max_coverage ?? 0)).toLocaleString("en-IN")}</p>
                     </div>
                     <div className="rounded-xl bg-muted/50 p-3 text-center">
                       <p className="text-xs text-muted-foreground mb-1">Co-pay</p>
@@ -261,7 +237,6 @@ const Plans = () => {
           All plans renew weekly · Cancel anytime from your Policy page · Premium may vary based on your zone and risk profile
         </p>
       </div>
-    </WorkerLayout>
   );
 };
 

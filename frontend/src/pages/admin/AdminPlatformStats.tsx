@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
-import { RequireSuperAdmin } from "@/components/RequireSuperAdmin";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -55,8 +54,7 @@ const AdminPlatformStats = () => {
   const revenueData = revenuePeriod === "weekly" ? revenueWeekly : revenueMonthly;
 
   return (
-    <RequireSuperAdmin>
-      <AdminLayout>
+    <>
         <PageHeader title="Platform Statistics" description="Bird's-eye view of the entire GigShield platform" />
 
         {/* KPIs */}
@@ -208,8 +206,7 @@ const AdminPlatformStats = () => {
             </div>
           </CardContent>
         </Card>
-      </AdminLayout>
-    </RequireSuperAdmin>
+    </>
   );
 };
 

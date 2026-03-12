@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +29,7 @@ const AdminFraud = () => {
   const [selected, setSelected] = useState<typeof fraudQueue[0] | null>(null);
 
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Fraud Review Queue" description="Review flagged claims requiring manual inspection" />
 
       <Card className="mb-6">
@@ -122,7 +121,7 @@ const AdminFraud = () => {
           )}
         </SheetContent>
       </Sheet>
-    </AdminLayout>
+    </>
   );
 };
 

@@ -5,9 +5,8 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
-import { RequireSuperAdmin } from "@/components/RequireSuperAdmin";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -108,8 +107,7 @@ const AdminStaff = () => {
     };
 
     return (
-        <RequireSuperAdmin>
-            <AdminLayout>
+        <>
                 <PageHeader title="Staff Management" description="Manage GigShield operations team members">
                     <Badge variant="secondary" className="text-sm">{activeCount} Active</Badge>
                     <Button onClick={() => navigate("/admin/staff/new")}>
@@ -245,8 +243,7 @@ const AdminStaff = () => {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
-            </AdminLayout>
-        </RequireSuperAdmin>
+        </>
     );
 };
 
