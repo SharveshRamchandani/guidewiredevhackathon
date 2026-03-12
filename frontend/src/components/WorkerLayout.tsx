@@ -1,11 +1,6 @@
 import { useState } from "react";
-<<<<<<< HEAD
-import { Link, useLocation } from "react-router-dom";
-import { Shield, LayoutDashboard, FileText, AlertTriangle, Wallet, User, Menu, X, Bell, ClipboardList } from "lucide-react";
-=======
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { Shield, LayoutDashboard, FileText, AlertTriangle, Wallet, User, Menu, X, Bell, ChevronLeft, ChevronRight } from "lucide-react";
->>>>>>> abhi
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
