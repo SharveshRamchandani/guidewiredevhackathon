@@ -74,11 +74,24 @@ class NotificationService {
     try {
       const r = await getRedisClient();
       if (r) {
-        // ── Redis path ──────────────────────────────────────────────────────
+        // ── 1. Cache in Redis List ──────────────────────────────────────────
         const key = this._key(role, userId);
         await r.lPush(key, JSON.stringify(notification));
         await r.lTrim(key, 0, MAX_NOTIFS - 1);
-        console.log(`[Notifications] ✅ Redis → ${key} [${type}]`);
+
+        // ── 2. Publish for Real-time (Pub/Sub) ──────────────────────────────
+        // We publish to two channels: 
+        // a) specific user channel: notifications:${role}:${userId}
+        // b) role broadcast channel: notifications:${role}:broadcast
+        const pubChannel = `notifications:${role}:${userId}`;
+        const bcastChannel = `notifications:${role}:broadcast`;
+        
+        await r.publish(pubChannel, JSON.stringify(notification));
+        if (userId !== 'all_admins' && userId !== 'all_superadmins') {
+          await r.publish(bcastChannel, JSON.stringify(notification));
+        }
+
+        console.log(`[Notifications] ✅ Redis → ${key} | Pub → ${pubChannel}`);
       } else {
         // ── In-memory path ──────────────────────────────────────────────────
         memPush(role, userId, notification);
@@ -102,8 +115,12 @@ class NotificationService {
         const keys = [this._key(role, userId)];
         
         // Add group keys for admins and superadmins
-        if (role === 'admin')      keys.push(this._key('admin', 'all_admins'));
-        if (role === 'superadmin') keys.push(this._key('superadmin', 'all_superadmins'));
+        if (role === 'admin' || role === 'superadmin') {
+          keys.push(this._key('admin', 'all_admins'));
+        }
+        if (role === 'superadmin') {
+          keys.push(this._key('superadmin', 'all_superadmins'));
+        }
 
         let allData = [];
         for (const key of keys) {
@@ -121,8 +138,12 @@ class NotificationService {
 
     // In-memory path
     const results = [...memGet(role, userId)];
-    if (role === 'admin')      results.push(...memGet('admin', 'all_admins'));
-    if (role === 'superadmin') results.push(...memGet('superadmin', 'all_superadmins'));
+    if (role === 'admin' || role === 'superadmin') {
+      results.push(...memGet('admin', 'all_admins'));
+    }
+    if (role === 'superadmin') {
+      results.push(...memGet('superadmin', 'all_superadmins'));
+    }
     
     const unique = Array.from(new Map(results.map(n => [n.id, n])).values());
     return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -144,8 +165,12 @@ class NotificationService {
       const r = await getRedisClient();
       if (r) {
         const keys = [this._key(role, userId)];
-        if (role === 'admin')      keys.push(this._key('admin', 'all_admins'));
-        if (role === 'superadmin') keys.push(this._key('superadmin', 'all_superadmins'));
+        if (role === 'admin' || role === 'superadmin') {
+          keys.push(this._key('admin', 'all_admins'));
+        }
+        if (role === 'superadmin') {
+          keys.push(this._key('superadmin', 'all_superadmins'));
+        }
 
         for (const key of keys) {
           const raw = await r.lRange(key, 0, -1);
@@ -170,9 +195,14 @@ class NotificationService {
     }
 
     // In-memory path
+    // In-memory path
     const results = [memKey(role, userId)];
-    if (role === 'admin')      results.push(memKey('admin', 'all_admins'));
-    if (role === 'superadmin') results.push(memKey('superadmin', 'all_superadmins'));
+    if (role === 'admin' || role === 'superadmin') {
+      results.push(memKey('admin', 'all_admins'));
+    }
+    if (role === 'superadmin') {
+      results.push(memKey('superadmin', 'all_superadmins'));
+    }
 
     for (const k of results) {
       const list = memStore.get(k) || [];
@@ -193,8 +223,12 @@ class NotificationService {
       const r = await getRedisClient();
       if (r) {
         const keys = [this._key(role, userId)];
-        if (role === 'admin')      keys.push(this._key('admin', 'all_admins'));
-        if (role === 'superadmin') keys.push(this._key('superadmin', 'all_superadmins'));
+        if (role === 'admin' || role === 'superadmin') {
+          keys.push(this._key('admin', 'all_admins'));
+        }
+        if (role === 'superadmin') {
+          keys.push(this._key('superadmin', 'all_superadmins'));
+        }
 
         for (const key of keys) {
           const raw = await r.lRange(key, 0, -1);
@@ -219,8 +253,12 @@ class NotificationService {
 
     // In-memory path
     const results = [memKey(role, userId)];
-    if (role === 'admin')      results.push(memKey('admin', 'all_admins'));
-    if (role === 'superadmin') results.push(memKey('superadmin', 'all_superadmins'));
+    if (role === 'admin' || role === 'superadmin') {
+      results.push(memKey('admin', 'all_admins'));
+    }
+    if (role === 'superadmin') {
+      results.push(memKey('superadmin', 'all_superadmins'));
+    }
 
     results.forEach(k => {
       const list = memStore.get(k) || [];
@@ -237,8 +275,12 @@ class NotificationService {
       const r = await getRedisClient();
       if (r) {
         const keys = [this._key(role, userId)];
-        if (role === 'admin')      keys.push(this._key('admin', 'all_admins'));
-        if (role === 'superadmin') keys.push(this._key('superadmin', 'all_superadmins'));
+        if (role === 'admin' || role === 'superadmin') {
+          keys.push(this._key('admin', 'all_admins'));
+        }
+        if (role === 'superadmin') {
+          keys.push(this._key('superadmin', 'all_superadmins'));
+        }
 
         for (const key of keys) {
           const raw = await r.lRange(key, 0, -1);
@@ -263,8 +305,12 @@ class NotificationService {
 
     // In-memory path
     const results = [memKey(role, userId)];
-    if (role === 'admin')      results.push(memKey('admin', 'all_admins'));
-    if (role === 'superadmin') results.push(memKey('superadmin', 'all_superadmins'));
+    if (role === 'admin' || role === 'superadmin') {
+      results.push(memKey('admin', 'all_admins'));
+    }
+    if (role === 'superadmin') {
+      results.push(memKey('superadmin', 'all_superadmins'));
+    }
 
     for (const k of results) {
       const list = memStore.get(k) || [];

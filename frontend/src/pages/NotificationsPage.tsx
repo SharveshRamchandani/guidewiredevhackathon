@@ -15,6 +15,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 // For demonstration purposes, we are importing useLocation to determine the current role route.
@@ -192,27 +193,50 @@ export default function NotificationsPage() {
   const archiveCount = notifications.filter((n) => n.isArchived).length;
   const favoriteCount = notifications.filter((n) => n.isFavorite).length;
 
+  // Determine if it's currently demo mode
+  const isDemoMode = apiNotifications.length === 0 && !isLoading;
+
   return (
     <div>
-      <PageHeader title="Notifications" />
+      <div className="flex items-center justify-between mb-6">
+        <PageHeader 
+          title={`${currentRoleName} Notifications`} 
+          description={isDemoMode ? "Currently showing example notifications. Trigger an action to see live updates." : "Real-time updates from GigShield platform."}
+        />
+        {isDemoMode && (
+          <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none px-2 py-1">
+            <span className="flex items-center gap-1.5 font-semibold">
+              <RefreshCw className="size-3 animate-spin" />
+              DEMO DATA ACTIVE
+            </span>
+          </Badge>
+        )}
+      </div>
+
       <Card className="w-full overflow-hidden mt-6">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <div className="flex items-center gap-3">
-            <IconBell className="size-6" />
-            <CardTitle className="text-xl font-semibold">List Notification</CardTitle>
-            {/* Live vs Demo badge */}
+            <IconBell className="size-6 text-primary" />
+            <CardTitle className="text-xl font-semibold">Inbox</CardTitle>
             {!isLoading && (
               <Badge
-                variant={apiNotifications.length > 0 ? "default" : "secondary"}
-                className="text-[10px] px-2 py-0.5"
+                variant={!isDemoMode ? "default" : "outline"}
+                className={cn("text-[10px] px-2 py-0.5 uppercase", !isDemoMode ? "bg-green-100 text-green-700 border-green-200" : "opacity-50")}
               >
-                {apiNotifications.length > 0 ? "🟢 LIVE" : "🔵 DEMO DATA"}
+                {!isDemoMode ? "🟢 Live Feed" : "⚪ Offline Mocks"}
               </Badge>
             )}
           </div>
-          <Button variant="ghost" size="icon">
-            <IconDotsVertical className="size-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {isDemoMode && (
+               <p className="text-[10px] text-muted-foreground mr-2 font-mono italic">
+                 {location.pathname.includes('/admin') ? 'role: admin_view' : 'role: worker_view'}
+               </p>
+            )}
+            <Button variant="ghost" size="icon">
+              <IconDotsVertical className="size-5" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Count and Search */}
