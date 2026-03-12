@@ -4,7 +4,7 @@
 // ============================================================
 
 const { query } = require('../config/db');
-const axios  = require('axios');
+const axios = require('axios');
 
 const ML_BASE_URL = process.env.ML_BASE_URL || 'http://localhost:8000';
 
@@ -25,9 +25,9 @@ function calculatePremium({ basePremium, zoneNumber, claimFreeWeeks, weeklyIncom
 
   // Loyalty discount
   let loyaltyDiscount = 0;
-  if      (claimFreeWeeks >= 24) loyaltyDiscount = 20;
+  if (claimFreeWeeks >= 24) loyaltyDiscount = 20;
   else if (claimFreeWeeks >= 12) loyaltyDiscount = 15;
-  else if (claimFreeWeeks >= 4)  loyaltyDiscount = 10;
+  else if (claimFreeWeeks >= 4) loyaltyDiscount = 10;
 
   // Risk-adjusted premium
   let finalPremium = (basePremium + zoneAdj - loyaltyDiscount) * riskMultiplier;
@@ -43,10 +43,10 @@ function calculatePremium({ basePremium, zoneNumber, claimFreeWeeks, weeklyIncom
 
   return {
     basePremium,
-    zoneAdjustment:   Math.round(zoneAdj * 100) / 100,
+    zoneAdjustment: Math.round(zoneAdj * 100) / 100,
     loyaltyDiscount,
     riskMultiplier,
-    finalPremium:     Math.round(finalPremium * 100) / 100,
+    finalPremium: Math.round(finalPremium * 100) / 100,
     affordabilityPct: weeklyIncome > 0
       ? Math.round((finalPremium / weeklyIncome) * 10000) / 100
       : null
@@ -72,11 +72,11 @@ function getCoPay(planName) {
 async function getRiskMultiplier(worker) {
   try {
     const { data } = await axios.post(`${ML_BASE_URL}/ml/risk-score`, {
-      worker_id:       worker.id,
-      platform:        worker.platform,
-      zone_id:         worker.zone_id,
+      worker_id: worker.id,
+      platform: worker.platform,
+      zone_id: worker.zone_id,
       avg_weekly_earning: worker.avg_weekly_earning,
-      risk_score:      worker.risk_score
+      risk_score: worker.risk_score
     }, { timeout: 3000 });
 
     // ML returns risk_score 0-1 → convert to multiplier 0.80–1.60
@@ -99,9 +99,14 @@ async function getRiskMultiplier(worker) {
  */
 async function listPlans() {
   const { rows } = await query(`
-    SELECT id, name, base_premium, max_payout, coverage_days, coverage_config
+    SELECT id, name,
+           base_premium,
+           max_payout,
+           COALESCE(coverage_days, 7) AS coverage_days,
+           coverage_config,
+           COALESCE(is_active, true) AS is_active
     FROM plans
-    WHERE is_active = true
+    WHERE COALESCE(is_active, true) = true
     ORDER BY base_premium ASC
   `);
   return rows;
@@ -113,9 +118,11 @@ async function listPlans() {
  */
 async function generateQuote(workerId, planId) {
 
-  // 1. Fetch worker
+  // 1. Fetch worker - use COALESCE for optional columns
   const workerRes = await query(`
-    SELECT w.*, z.zone_number, z.risk_factor
+    SELECT w.*, 
+           COALESCE(z.zone_number, 1) AS zone_number, 
+           z.risk_factor
     FROM workers w
     LEFT JOIN zones z ON z.id = w.zone_id
     WHERE w.id = $1
@@ -126,9 +133,11 @@ async function generateQuote(workerId, planId) {
   }
   const worker = workerRes.rows[0];
 
-  // 2. Fetch plan
+  // 2. Fetch plan - use COALESCE for optional columns
   const planRes = await query(`
-    SELECT * FROM plans WHERE id = $1 AND is_active = true
+    SELECT *
+    FROM plans
+    WHERE id = $1 AND COALESCE(is_active, true) = true
   `, [planId]);
 
   if (!planRes.rows.length) {
@@ -147,35 +156,35 @@ async function generateQuote(workerId, planId) {
   // 4. Get ML risk multiplier
   const riskMultiplier = await getRiskMultiplier(worker);
 
-  // 5. Calculate premium
+  // 5. Calculate premium - use COALESCE for optional worker fields
   const pricing = calculatePremium({
-    basePremium:     parseFloat(plan.base_premium),
-    zoneNumber:      worker.zone_number || 1,
-    claimFreeWeeks:  worker.claim_free_weeks || 0,
-    weeklyIncome:    parseFloat(worker.avg_weekly_earning) || 0,
+    basePremium: parseFloat(plan.base_premium),
+    zoneNumber: worker.zone_number || 1,
+    claimFreeWeeks: worker.claim_free_weeks || 0,
+    weeklyIncome: parseFloat(worker.avg_weekly_earning) || 0,
     riskMultiplier
   });
 
   // 6. Return quote
   return {
     plan: {
-      id:              plan.id,
-      name:            plan.name,
-      max_payout:      plan.max_payout,
-      coverage_days:   plan.coverage_days,
+      id: plan.id,
+      name: plan.name,
+      max_payout: plan.max_payout,
+      coverage_days: plan.coverage_days,
       coverage_config: plan.coverage_config
     },
     worker: {
-      id:              worker.id,
-      name:            worker.name,
-      zone_number:     worker.zone_number,
+      id: worker.id,
+      name: worker.name,
+      zone_number: worker.zone_number,
       claim_free_weeks: worker.claim_free_weeks || 0
     },
     pricing: {
       ...pricing,
       co_payment_percent: getCoPay(plan.name),
-      weekly_premium:     pricing.finalPremium,
-      monthly_estimate:   Math.round(pricing.finalPremium * 4 * 100) / 100
+      weekly_premium: pricing.finalPremium,
+      monthly_estimate: Math.round(pricing.finalPremium * 4 * 100) / 100
     },
     valid_for_minutes: 30
   };
@@ -187,9 +196,9 @@ async function generateQuote(workerId, planId) {
  */
 async function createPolicy(workerId, planId) {
 
-  // 1. Check worker exists + is verified
+  // 1. Check worker exists + is verified - use COALESCE for optional columns
   const workerRes = await query(`
-    SELECT w.*, z.zone_number
+    SELECT w.*, COALESCE(z.zone_number, 1) AS zone_number
     FROM workers w
     LEFT JOIN zones z ON z.id = w.zone_id
     WHERE w.id = $1
@@ -219,9 +228,11 @@ async function createPolicy(workerId, planId) {
     throw { status: 400, message: 'Worker already has an active policy' };
   }
 
-  // 3. Fetch plan
+  // 3. Fetch plan - use COALESCE for optional columns
   const planRes = await query(`
-    SELECT * FROM plans WHERE id = $1 AND is_active = true
+    SELECT *
+    FROM plans
+    WHERE id = $1 AND COALESCE(is_active, true) = true
   `, [planId]);
 
   if (!planRes.rows.length) {
@@ -240,10 +251,10 @@ async function createPolicy(workerId, planId) {
   // 5. Calculate premium
   const riskMultiplier = await getRiskMultiplier(worker);
   const pricing = calculatePremium({
-    basePremium:    parseFloat(plan.base_premium),
-    zoneNumber:     worker.zone_number || 1,
+    basePremium: parseFloat(plan.base_premium),
+    zoneNumber: worker.zone_number || 1,
     claimFreeWeeks: worker.claim_free_weeks || 0,
-    weeklyIncome:   parseFloat(worker.avg_weekly_earning) || 0,
+    weeklyIncome: parseFloat(worker.avg_weekly_earning) || 0,
     riskMultiplier
   });
 
@@ -251,32 +262,34 @@ async function createPolicy(workerId, planId) {
 
   // 6. Set policy dates (weekly cycle)
   const startDate = new Date();
-  const endDate   = new Date();
-  endDate.setDate(endDate.getDate() + plan.coverage_days);
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + (plan.coverage_days || 7));
 
   // 7. Create policy
-  const { rows } = await query(`
-    INSERT INTO policies (
-      worker_id, plan_id, status,
-      premium, premium_amount,
-      start_date, end_date,
-      co_payment_percent, auto_renew, zone_adjustment
-    ) VALUES (
-      $1, $2, 'active',
-      $3, $3,
-      $4, $5,
-      $6, false, $7
-    )
-    RETURNING *
-  `, [
-    workerId,
-    planId,
-    pricing.finalPremium,
-    startDate.toISOString().split('T')[0],
-    endDate.toISOString().split('T')[0],
-    coPay,
-    pricing.zoneAdjustment
-  ]);
+  // Build INSERT dynamically so it works whether or not migration 007 has run.
+  // Core columns guaranteed by migration 000:
+  const insertCols = ['worker_id', 'plan_id', 'status', 'premium', 'premium_amount', 'start_date', 'end_date'];
+  const insertVals = [workerId, planId, 'active', pricing.finalPremium, pricing.finalPremium,
+    startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]];
+
+  // Optional columns added by migration 007 — only include if they exist on the table.
+  const colCheckRes = await query(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'policies'
+    AND column_name IN ('co_payment_percent', 'auto_renew', 'zone_adjustment', 'coverage_config')
+  `);
+  const existingCols = new Set(colCheckRes.rows.map(r => r.column_name));
+
+  if (existingCols.has('co_payment_percent')) { insertCols.push('co_payment_percent'); insertVals.push(coPay); }
+  if (existingCols.has('auto_renew'))         { insertCols.push('auto_renew');         insertVals.push(false); }
+  if (existingCols.has('zone_adjustment'))    { insertCols.push('zone_adjustment');    insertVals.push(pricing.zoneAdjustment); }
+  if (existingCols.has('coverage_config'))    { insertCols.push('coverage_config');    insertVals.push(plan.coverage_config || null); }
+
+  const placeholders = insertVals.map((_, i) => `$${i + 1}`).join(', ');
+  const { rows } = await query(
+    `INSERT INTO policies (${insertCols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+    insertVals
+  );
 
   const policy = rows[0];
 
@@ -284,9 +297,9 @@ async function createPolicy(workerId, planId) {
   return {
     policy: {
       ...policy,
-      plan_name:   plan.name,
-      max_payout:  plan.max_payout,
-      days_remaining: plan.coverage_days
+      plan_name: plan.name,
+      max_payout: plan.max_payout,
+      days_remaining: plan.coverage_days || 7
     },
     pricing,
     message: `${plan.name.charAt(0).toUpperCase() + plan.name.slice(1)} plan activated successfully`
@@ -301,10 +314,10 @@ async function getWorkerPolicies(workerId) {
   const { rows } = await query(`
     SELECT
       pol.*,
-      pl.name        AS plan_name,
-      pl.max_payout,
+      pl.name       AS plan_name,
+      pl.max_payout AS max_payout,
       pl.coverage_config,
-      pol.end_date - CURRENT_DATE AS days_remaining
+      GREATEST(0, (pol.end_date::date - CURRENT_DATE)) AS days_remaining
     FROM policies pol
     JOIN plans pl ON pl.id = pol.plan_id
     WHERE pol.worker_id = $1
@@ -323,12 +336,12 @@ async function getPolicyById(policyId, workerId) {
     SELECT
       pol.*,
       pl.name        AS plan_name,
-      pl.max_payout,
+      COALESCE(pl.max_payout, pl.max_coverage) AS max_payout,
       pl.coverage_config,
-      pol.end_date - CURRENT_DATE AS days_remaining,
+      GREATEST(0, (pol.end_date::date - CURRENT_DATE)) AS days_remaining,
       w.name         AS worker_name,
       w.phone,
-      w.upi_id
+      COALESCE(w.upi_id, w.upi) AS upi_id
     FROM policies pol
     JOIN plans pl ON pl.id = pol.plan_id
     JOIN workers w ON w.id = pol.worker_id
@@ -347,9 +360,13 @@ async function getPolicyById(policyId, workerId) {
  */
 async function renewPolicy(policyId, workerId) {
 
-  // 1. Find the existing policy
+  // 1. Find the existing policy - use COALESCE for optional columns
   const policyRes = await query(`
-    SELECT pol.*, pl.name AS plan_name, pl.coverage_days, pl.base_premium, pl.is_active
+    SELECT pol.*, 
+           pl.name AS plan_name, 
+           COALESCE(pl.coverage_days, 7) AS coverage_days, 
+           COALESCE(pl.base_premium, pl.weekly_premium) AS base_premium,
+           COALESCE(pl.is_active, true) AS is_active
     FROM policies pol
     JOIN plans pl ON pl.id = pol.plan_id
     WHERE pol.id = $1 AND pol.worker_id = $2
@@ -375,9 +392,9 @@ async function renewPolicy(policyId, workerId) {
     throw { status: 400, message: 'Worker already has another active policy' };
   }
 
-  // 3. Recalculate premium with latest worker data
+  // 3. Recalculate premium with latest worker data - use COALESCE
   const workerRes = await query(`
-    SELECT w.*, z.zone_number
+    SELECT w.*, COALESCE(z.zone_number, 1) AS zone_number
     FROM workers w
     LEFT JOIN zones z ON z.id = w.zone_id
     WHERE w.id = $1
@@ -386,17 +403,17 @@ async function renewPolicy(policyId, workerId) {
   const worker = workerRes.rows[0];
   const riskMultiplier = await getRiskMultiplier(worker);
   const pricing = calculatePremium({
-    basePremium:    parseFloat(old.base_premium),
-    zoneNumber:     worker.zone_number || 1,
+    basePremium: parseFloat(old.base_premium),
+    zoneNumber: worker.zone_number || 1,
     claimFreeWeeks: worker.claim_free_weeks || 0,
-    weeklyIncome:   parseFloat(worker.avg_weekly_earning) || 0,
+    weeklyIncome: parseFloat(worker.avg_weekly_earning) || 0,
     riskMultiplier
   });
 
   // 4. Set new dates
   const startDate = new Date();
-  const endDate   = new Date();
-  endDate.setDate(endDate.getDate() + old.coverage_days);
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + (old.coverage_days || 7));
 
   // 5. Update policy
   const { rows } = await query(`
@@ -419,7 +436,7 @@ async function renewPolicy(policyId, workerId) {
   ]);
 
   return {
-    policy:  rows[0],
+    policy: rows[0],
     pricing,
     message: 'Policy renewed successfully'
   };

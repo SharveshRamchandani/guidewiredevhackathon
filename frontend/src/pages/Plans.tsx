@@ -2,8 +2,8 @@ import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 import { Check } from "lucide-react";
 
@@ -49,20 +49,50 @@ const PLAN_META: Record<string, {
 
 const Plans = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { token } = useWorkerAuthStore();
   const [plans, setPlans]         = useState<Plan[]>([]);
   const [loading, setLoading]     = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [error, setError]         = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const plansRef = useRef<Plan[]>([]);
+
+  // Check if we're in upgrade mode
+  const isUpgradeMode = searchParams.get('upgrade') === 'true';
+  const currentPlanId = searchParams.get('currentPlan') || '';
 
   useEffect(() => {
     fetch(`${API_BASE}/api/policy/plans`)
       .then(r => r.json())
-      .then(d => { if (d.success) setPlans(d.plans); else setError("Failed to load plans"); })
+      .then(d => { 
+        if (d.success) {
+          setPlans(d.plans);
+          plansRef.current = d.plans;
+        } else {
+          setError("Failed to load plans");
+        }
+      })
       .catch(() => setError("Could not connect to server"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Auto-select current plan in upgrade mode
+  useEffect(() => {
+    if (isUpgradeMode && plansRef.current.length > 0 && currentPlanId) {
+      const currentPlan = plansRef.current.find(p => p.id === currentPlanId);
+      if (currentPlan) {
+        // Scroll to a different plan (not current one) to encourage upgrade
+        const nextPlanIndex = plansRef.current.findIndex(p => p.id !== currentPlanId);
+        if (nextPlanIndex >= 0) {
+          const element = document.getElementById(`plan-${plansRef.current[nextPlanIndex].id}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+    }
+  }, [loading, isUpgradeMode, currentPlanId]);
 
   const handleSelect = async (planId: string) => {
     if (!token) { navigate("/login"); return; }
@@ -76,12 +106,15 @@ const Plans = () => {
       });
       const data = await res.json();
       if (data.success) {
-        setSuccessMsg("Plan activated! Redirecting to your policy...");
-        setTimeout(() => navigate("/policy"), 1500);
+        setSuccessMsg("Plan upgraded! Redirecting to your policy...");
+        setTimeout(() => {
+          // Clear URL params and navigate to policy
+          navigate("/policy", { replace: true });
+        }, 1500);
       } else {
         setError(data.message?.toLowerCase().includes("already has an active policy")
           ? "You already have an active policy. Visit Policy page to manage it."
-          : data.message || "Failed to purchase plan");
+          : data.message || "Failed to upgrade plan");
       }
     } catch { setError("Something went wrong. Please try again."); }
     finally   { setPurchasing(null); }
@@ -129,6 +162,7 @@ const Plans = () => {
 
             return (
               <div
+                id={`plan-${plan.id}`}
                 key={plan.id}
                 className={`relative flex flex-col rounded-2xl border-2 ${meta.borderClass} bg-card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden`}
               >
