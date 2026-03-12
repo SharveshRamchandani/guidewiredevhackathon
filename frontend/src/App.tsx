@@ -26,6 +26,7 @@ import RegisterPhone from "./pages/RegisterPhone";
 import RegisterProfile from "./pages/RegisterProfile";
 import RegisterKyc from "./pages/RegisterKyc";
 import RegisterUpi from "./pages/RegisterUpi";
+import RegisterPlan from "./pages/RegisterPlan";
 import Dashboard from "./pages/Dashboard";
 import Policy from "./pages/Policy";
 import Claims from "./pages/Claims";
@@ -86,6 +87,7 @@ const App = () => (
             <Route path="/register/profile" element={<RegisterProfile />} />
             <Route path="/register/kyc" element={<RegisterKyc />} />
             <Route path="/register/upi" element={<RegisterUpi />} />
+            <Route path="/register/plan" element={<RegisterPlan />} />
 
             {/* ─── Protected Worker Routes (layout stays mounted) ─── */}
             <Route element={<RequireWorkerAuth><WorkerLayout /></RequireWorkerAuth>}>
