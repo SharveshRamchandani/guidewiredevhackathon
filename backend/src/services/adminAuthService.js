@@ -149,7 +149,7 @@ async function createAdmin(data, createdById) {
     await insertAuditLog(createdById, 'ADMIN_STAFF_CREATED', 'admin_user', admin.id, null, { email, jobTitle });
 
     // 4b. Emit RBA Event for Notifications
-    eventBus.emit('staff:added');
+    eventBus.emit('staff:added', { staffName: name });
 
     // 5. Build setup link
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
