@@ -1,4 +1,54 @@
-# GigShield — Layer 6: Data Layer
+# GigShield — Data Layer (Updated for Use My Location Feature)
+
+## New Feature: Use My Location
+
+**Added support for worker location selection via GPS:**
+
+```
+Frontend Flow:
+Dashboard/Register → "📍 Use My Location" 
+  ↓ GPS (browser)
+  ↓ BigDataCloud API (free) → lat/lng → city
+  ↓ Backend /api/worker/zones?city=Mumbai → fuzzy match zones
+  ↓ Leaflet map modal + zone selector
+  ↓ PATCH /api/worker/location → UPDATE workers (city, zone_id)
+```
+
+**Database Changes:**
+```
+workers table:
+- city (string) - Human readable city name  
+- zone_id (UUID) → REFERENCES zones(id)
+- updated_at (TIMESTAMPTZ) - Track location updates
+
+zones table:
+- id (UUID PRIMARY KEY)
+- city_id REFERENCES cities(id)
+- name (VARCHAR) - "Bandra", "Andheri", etc.
+
+cities table:
+- id (UUID PRIMARY KEY)
+- name (VARCHAR UNIQUE) - "Mumbai", "Delhi", etc.
+```
+
+**Backend Endpoints Added:**
+```
+GET /api/worker/zones?city=sathyamangalam
+→ Remaps to Coimbatore → returns zones for Coimbatore
+
+PATCH /api/worker/location
+→ UPDATE workers SET city, zone_id, updated_at WHERE id=$3
+→ requireWorkerAuth middleware (JWT + active check)
+```
+
+**Frontend Components Added:**
+```
+hooks/useLocation.ts - GPS + geocoding + backend call
+components/LocationPicker.tsx - Map modal + zone selector
+Integrated in Dashboard.tsx + RegisterProfile.tsx
+```
+
+## Full Architecture
 
 ## Overview
 

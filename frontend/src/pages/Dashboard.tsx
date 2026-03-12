@@ -8,7 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
 import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye } from "lucide-react";
+import { useToast } from '@/hooks/use-toast';
+import LocationPicker from '@/components/LocationPicker';
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { MapPin } from "lucide-react";
 
 const recentClaims = [
   { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const },
@@ -17,21 +21,66 @@ const recentClaims = [
 ];
 
 const Dashboard = () => {
+  const [workerCity, setWorkerCity] = useState<string | null>(null);
+  const [workerLat, setWorkerLat] = useState<number | null>(null);
+  const [workerLng, setWorkerLng] = useState<number | null>(null);
+  const [workerZoneId, setWorkerZoneId] = useState<number | null>(null);
+  const { toast } = useToast();
   const daysRemaining = 5;
   const daysTotal = 7;
 
-  return (
-      <div>
-        <PageHeader title="Dashboard" description="Welcome back, Ramesh!" />
+  const handleLocationSaved = (city: string, zoneId: string, lat: number, lng: number) => {
+    toast({
+      title: "✅ Location updated!",
+      description: `Now showing weather for ${city}`,
+    });
+    setWorkerCity(city);
+    setWorkerLat(lat);
+    setWorkerLng(lng);
+    setWorkerZoneId(Number(zoneId));
+  };
 
-        {/* Disruption Alert */}
-        <Alert variant="destructive" className="mb-6">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle className="flex items-center gap-2">
-            Live Disruption Alert <Badge variant="outline" className="bg-destructive/20 text-destructive-foreground border-destructive/40">Heavy Rain</Badge>
-          </AlertTitle>
-          <AlertDescription>Heavy rainfall detected in Bandra zone. If disruption continues, a claim will be auto-triggered.</AlertDescription>
-        </Alert>
+  return (
+    <div>
+      {/* Location Section */}
+      {workerLat && workerLng && workerCity ? (
+        <div className="rounded-xl border overflow-hidden mb-6">
+          <iframe
+            title="Worker Location"
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${(workerLng - 0.05).toFixed(6)}%2C${(workerLat - 0.05).toFixed(6)}%2C${(workerLng + 0.05).toFixed(6)}%2C${(workerLat + 0.05).toFixed(6)}&layer=mapnik&marker=${workerLat.toFixed(6)}%2C${workerLng.toFixed(6)}`}
+            width="100%"
+            style={{ height: '180px', display: 'block', border: 'none' }}
+          />
+          <div className="flex items-center justify-between px-4 py-2 bg-card border-t">
+            <div className="flex items-center gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-primary" />
+              <span className="font-medium">{workerCity}</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => { setWorkerCity(null); setWorkerLat(null); setWorkerLng(null); setWorkerZoneId(null); }}>
+              Change
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-center mb-6">
+          <LocationPicker
+            compact={true}
+            onLocationSaved={handleLocationSaved}
+          />
+        </div>
+      )}
+      <div className="mb-6">
+        <PageHeader title="Dashboard" description="Welcome back, Ramesh!" />
+      </div>
+
+      {/* Disruption Alert */}
+      <Alert variant="destructive" className="mb-6">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle className="flex items-center gap-2">
+          Live Disruption Alert <Badge variant="outline" className="bg-destructive/20 text-destructive-foreground border-destructive/40">Heavy Rain</Badge>
+        </AlertTitle>
+      <AlertDescription>Heavy rainfall detected in {workerCity || 'your zone'}. If disruption continues, a claim will be auto-triggered.</AlertDescription>
+      </Alert>
 
         {/* Active Policy + Earnings */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -126,8 +175,8 @@ const Dashboard = () => {
         {/* Weather Widget */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="font-display text-lg">Live Weather — Bandra</CardTitle>
+<CardHeader>
+            <CardTitle className="font-display text-lg">Live Weather — {workerCity || 'your zone'}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4 text-center">

@@ -1,9 +1,10 @@
 /**
  * API Client — GigShield
  * Centralized fetch wrapper with error normalization.
+ * COMPLETE VERSION WITH ALL EXPORTS
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = (import.meta.env as any).VITE_API_URL || 'http://localhost:5000';
 
 interface ApiErrorShape {
     error: {
@@ -50,7 +51,6 @@ async function apiFetch<T>(
         const err = data as ApiErrorShape;
         const code = err?.error?.code || 'UNKNOWN_ERROR';
 
-        // Global intercept: If account becomes inactive mid-session
         if (code === 'INACTIVE_ACCOUNT') {
             window.location.href = '/not-authorized';
         }
@@ -66,7 +66,7 @@ async function apiFetch<T>(
     return data as T;
 }
 
-// ─── Worker Auth ──────────────────────────────────────────────────────────────
+// ─── Worker API ──────────────────────────────────────────────────────────────
 
 export const workerApi = {
     sendOtp: (phone: string) =>
@@ -86,12 +86,11 @@ export const workerApi = {
             { method: 'POST', body: JSON.stringify({ phone, otp }) }
         ),
 
-    // No registrationCode — workers register directly with GigShield
     completeRegistration: (registrationToken: string, data: {
         name: string;
         platform: string;
         city: string;
-        zoneId?: number;
+        zoneId?: string;
         avgWeeklyEarning?: number;
         aadhaarLast4: string;
         upiId: string;
@@ -104,9 +103,19 @@ export const workerApi = {
                 headers: { Authorization: `Bearer ${registrationToken}` },
             }
         ),
+
+    updateLocation: (city: string, zoneId: string, token?: string | null) =>
+        apiFetch<{ success: boolean; worker?: { id: string; city: string; zone_id: string } }>(
+            '/api/worker/location',
+            { 
+                method: 'PATCH', 
+                body: JSON.stringify({ city, zone_id: zoneId }) 
+            },
+            token
+        ),
 };
 
-// ─── Admin Auth ───────────────────────────────────────────────────────────────
+// ─── Admin API ───────────────────────────────────────────────────────────────
 
 export const adminApi = {
     login: (email: string, password: string) =>
@@ -125,7 +134,7 @@ export const adminApi = {
         ),
 };
 
-// ─── Super Admin ──────────────────────────────────────────────────────────────
+// ─── Super Admin API ─────────────────────────────────────────────────────────
 
 export const superAdminApi = {
     createStaff: (data: {
@@ -228,3 +237,4 @@ export const superAdminApi = {
         );
     },
 };
+

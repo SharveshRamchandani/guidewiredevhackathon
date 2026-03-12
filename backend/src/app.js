@@ -12,10 +12,12 @@ const authRoutes = require('./routes/authRoutes');
 const policyRoutes = require('./routes/policyRoutes');
 const claimsRoutes = require('./routes/claimsRoutes');
 const payoutRoutes = require('./routes/payoutRoutes');
+const workerRoutes = require('./routes/workerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
 // Auth/role routes
 const workerAuthRoutes = require('./routes/workerAuthRoutes');
+
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 
@@ -67,6 +69,7 @@ app.use('/api/auth', workerAuthRoutes);
 app.use('/api/policy', policyRoutes);
 app.use('/api/claims', claimsRoutes);
 app.use('/api/payouts', payoutRoutes);
+app.use('/api/worker', workerRoutes);
 
 // ⚠️  IMPORTANT: adminAuthRoutes and superAdminRoutes MUST be registered BEFORE adminRoutes.
 // adminRoutes applies requireAdminAuth to ALL sub-paths, so if it runs first it will

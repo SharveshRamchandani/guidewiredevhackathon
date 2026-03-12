@@ -17,26 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Shield, HelpCircle, ArrowLeft, ArrowRight } from "lucide-react";
+import LocationPicker from '@/components/LocationPicker';
 import { ThemeToggle } from "@/components/ThemeToggle";
-
-const zones: Record<string, { name: string; risk: "low" | "medium" | "high" }[]> = {
-    mumbai: [
-        { name: "Andheri", risk: "medium" }, { name: "Bandra", risk: "high" }, { name: "Dadar", risk: "low" },
-    ],
-    delhi: [
-        { name: "Connaught Place", risk: "low" }, { name: "Dwarka", risk: "medium" }, { name: "Rohini", risk: "high" },
-    ],
-    bangalore: [
-        { name: "Koramangala", risk: "low" }, { name: "Whitefield", risk: "medium" }, { name: "Electronic City", risk: "high" },
-    ],
-    hyderabad: [
-        { name: "Hitech City", risk: "low" }, { name: "Kukatpally", risk: "medium" }, { name: "LB Nagar", risk: "high" },
-    ],
-    chennai: [
-        { name: "Anna Nagar", risk: "low" }, { name: "T Nagar", risk: "medium" }, { name: "Tambaram", risk: "high" },
-    ],
-};
-
 const riskVariant = (risk: string) => {
     if (risk === "high") return "destructive" as const;
     if (risk === "medium") return "secondary" as const;
@@ -49,8 +31,8 @@ const RegisterProfile = () => {
     const [name, setName] = useState("");
     const [platform, setPlatform] = useState("");
     const [city, setCity] = useState("");
-    const [zone, setZone] = useState("");
-    const [earnings, setEarnings] = useState("");
+    const [zoneId, setZoneId] = useState<string>("");
+    const [earnings, setEarnings] = useState(""); 
 
     // Guard — must have registration token from Step 1
     useEffect(() => {
@@ -60,7 +42,7 @@ const RegisterProfile = () => {
     }, [navigate]);
 
     // No registration code — workers register directly with GigShield
-    const canProceed = name && platform && city && zone && earnings;
+    const canProceed = name && platform && city && zoneId && earnings; // use zoneId
 
     const handleNext = () => {
         if (!canProceed) return;
@@ -68,7 +50,7 @@ const RegisterProfile = () => {
             name,
             platform,
             city,
-            zone,
+            zoneId, // UUID string
             earnings: Number(earnings),
             // No registrationCode
         }));
@@ -131,7 +113,7 @@ const RegisterProfile = () => {
                         {/* City */}
                         <div className="space-y-2">
                             <Label>City</Label>
-                            <Select value={city} onValueChange={(v) => { setCity(v); setZone(""); }}>
+                            <Select value={city} onValueChange={(v) => { setCity(v); setZoneId(""); }}>
                                 <SelectTrigger id="reg-city">
                                     <SelectValue placeholder="Select your city" />
                                 </SelectTrigger>
@@ -145,28 +127,19 @@ const RegisterProfile = () => {
                             </Select>
                         </div>
 
-                        {/* Zone (loads on city change) */}
-                        {city && (
-                            <div className="space-y-2">
-                                <Label>Zone</Label>
-                                <Select value={zone} onValueChange={setZone}>
-                                    <SelectTrigger id="reg-zone">
-                                        <SelectValue placeholder="Select your zone" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {zones[city]?.map((z) => (
-                                            <SelectItem key={z.name} value={z.name.toLowerCase()}>
-                                                <span className="flex items-center gap-2">
-                                                    {z.name}{" "}
-                                                    <Badge variant={riskVariant(z.risk)} className="text-xs">
-                                                        {z.risk} risk
-                                                    </Badge>
-                                                </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        {/* LocationPicker - Use My Location */}
+                        <LocationPicker 
+                          onLocationSaved={(cityParam, zoneIdParam) => {
+                            setCity(cityParam);
+                            setZoneId(zoneIdParam);
+                          }} 
+                        />
+
+                        {/* Zone display (read-only after picker) */}
+                        {zoneId && (
+                          <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                            Selected Zone ID: {zoneId.slice(0,8)}...
+                          </div>
                         )}
 
                         {/* Earnings */}
