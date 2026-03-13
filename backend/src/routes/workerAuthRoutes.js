@@ -65,7 +65,7 @@ router.post('/verify-otp', otpVerifyLimiter, asyncHandler(async (req, res) => {
 // Protected by registration token middleware
 
 router.post('/register/complete', requireRegistrationToken, asyncHandler(async (req, res) => {
-    const { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId } = req.body;
+    const { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId, planId } = req.body;
 
     // Validate required fields — no registrationCode
     const missing = ['name', 'platform', 'city', 'aadhaarLast4', 'upiId']
@@ -79,7 +79,7 @@ router.post('/register/complete', requireRegistrationToken, asyncHandler(async (
 
     const result = await workerAuthService.completeWorkerRegistration(
         req.headers.authorization.split(' ')[1],
-        { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId }
+        { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId, planId }
     );
 
     return res.status(201).json(result);

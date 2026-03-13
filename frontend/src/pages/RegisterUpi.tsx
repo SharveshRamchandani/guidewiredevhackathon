@@ -1,7 +1,10 @@
 /**
- * Registration Step 4 — UPI Setup & Policy Activation
+ * Registration Step 4 — UPI Setup
  * Route: /register/upi
- * Final step: calls the registration API and issues JWT.
+ *
+ * Worker enters their UPI ID. On confirmation, UPI is saved to sessionStorage
+ * and the worker proceeds to Step 5 (Plan Selection & Payment).
+ * Account creation happens only after plan payment in /register/plan.
  */
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
@@ -13,28 +16,22 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, ArrowLeft, Loader2, CheckCircle, PartyPopper } from "lucide-react";
-import { toast } from "sonner";
+import { Shield, ArrowLeft, ArrowRight, CheckCircle, Wallet } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { workerApi, ApiError } from "@/lib/api";
-import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 
 const RegisterUpi = () => {
     const navigate = useNavigate();
-    const { setToken, setWorker } = useWorkerAuthStore();
 
     const [upi, setUpi] = useState("");
     const [upiValid, setUpiValid] = useState<boolean | null>(null);
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    // Guard
+    // Guard — must come from KYC step
     useEffect(() => {
-        const token = sessionStorage.getItem('_regToken');
-        const profile = sessionStorage.getItem('_regProfile');
-        const aadhaar = sessionStorage.getItem('_regAadhaar');
+        const token = sessionStorage.getItem("_regToken");
+        const profile = sessionStorage.getItem("_regProfile");
+        const aadhaar = sessionStorage.getItem("_regAadhaar");
         if (!token || !profile || !aadhaar) {
             navigate("/register/phone", { replace: true });
         }
@@ -46,51 +43,16 @@ const RegisterUpi = () => {
         setUpiValid(v.length > 3 ? upiRegex.test(v) : null);
     };
 
-    const handleActivate = async () => {
+    /** Save UPI to session and proceed to plan selection */
+    const handleNext = () => {
         if (!upiValid) return;
-        setLoading(true);
-        setError("");
-
-        try {
-            const regToken = sessionStorage.getItem('_regToken')!;
-            const profile = JSON.parse(sessionStorage.getItem('_regProfile')!);
-            const aadhaar = sessionStorage.getItem('_regAadhaar')!;
-
-            const result = await workerApi.completeRegistration(regToken, {
-                name: profile.name,
-                platform: profile.platform,
-                city: profile.city,
-                avgWeeklyEarning: profile.earnings,
-                aadhaarLast4: aadhaar,
-                upiId: upi,
-                // No registrationCode — workers register directly with GigShield
-            });
-
-            // Clear session storage
-            sessionStorage.removeItem('_regToken');
-            sessionStorage.removeItem('_regPhone');
-            sessionStorage.removeItem('_regProfile');
-            sessionStorage.removeItem('_regAadhaar');
-
-            // Store auth token
-            setToken(result.token);
-            setWorker(result.worker);
-
-            toast.success("🎉 Welcome to GigShield! Your policy is now active.");
-            navigate("/dashboard");
-        } catch (err) {
-            if (err instanceof ApiError) {
-                setError(err.message);
-            } else {
-                setError("Registration failed. Please try again.");
-            }
-        } finally {
-            setLoading(false);
-        }
+        sessionStorage.setItem("_regUpi", upi);
+        navigate("/register/plan");
     };
 
     return (
         <div className="min-h-screen bg-background">
+            {/* ── Header ── */}
             <div className="sticky top-0 z-50 bg-card border-b">
                 <div className="container flex h-14 items-center justify-between">
                     <Link to="/" className="flex items-center gap-2">
@@ -99,19 +61,20 @@ const RegisterUpi = () => {
                     </Link>
                     <ThemeToggle />
                 </div>
-                <Progress value={100} className="h-1" />
+                {/* 4/5 = 80% */}
+                <Progress value={80} className="h-1" />
             </div>
 
             <div className="container max-w-lg py-8">
                 <Card>
                     <CardHeader>
-                        <Badge variant="outline" className="w-fit mb-2">Step 4 of 4</Badge>
+                        <Badge variant="outline" className="w-fit mb-2">Step 4 of 5</Badge>
                         <CardTitle className="font-display">UPI Setup</CardTitle>
                         <CardDescription>
-                            Add your UPI to receive automatic payouts when claims are approved
+                            Add your UPI ID to receive automatic payouts when claims are approved
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-5">
                         {error && (
                             <Alert variant="destructive">
                                 <AlertDescription>{error}</AlertDescription>
@@ -124,7 +87,7 @@ const RegisterUpi = () => {
                             <div className="relative">
                                 <Input
                                     id="reg-upi"
-                                    placeholder="name@upi or name@okicici"
+                                    placeholder="name@okicici or name@upi"
                                     value={upi}
                                     onChange={(e) => handleUpiChange(e.target.value)}
                                     className="pr-24"
@@ -147,55 +110,42 @@ const RegisterUpi = () => {
                             </p>
                         </div>
 
-                        {/* Premium Preview Card */}
-                        <Card className="bg-muted/40 border-dashed">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-base font-display flex items-center gap-2">
-                                    <PartyPopper className="h-4 w-4 text-primary" />
-                                    Premium Preview
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Base Premium</span>
-                                    <span>₹29/week</span>
-                                </div>
-                                <Separator />
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Zone Risk Adjustment</span>
-                                    <span>+₹6</span>
-                                </div>
-                                <Separator />
-                                <div className="flex justify-between font-semibold">
-                                    <span>Total Weekly</span>
-                                    <span className="text-primary">₹35/week</span>
-                                </div>
-                                <Separator />
-                                <div className="text-xs text-muted-foreground space-y-1 pt-1">
-                                    <p>✓ Heavy Rain coverage up to ₹500</p>
-                                    <p>✓ Platform Outage coverage up to ₹600</p>
-                                    <p>✓ Poor AQI coverage up to ₹400</p>
-                                    <p>✓ Automatic payouts — no claims to file</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Info card */}
+                        <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <Wallet className="h-4 w-4 text-primary" />
+                                How UPI payouts work
+                            </div>
+                            <ul className="text-xs text-muted-foreground space-y-1.5">
+                                <li>✓ Payouts sent automatically within minutes of a triggered event</li>
+                                <li>✓ No need to file a claim — GigShield detects disruptions for you</li>
+                                <li>✓ Compatible with all major UPI apps (GPay, PhonePe, Paytm, BHIM)</li>
+                                <li>✓ Your UPI ID is encrypted and stored securely</li>
+                            </ul>
+                        </div>
 
+                        {/* What comes next */}
+                        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
+                            <p className="font-medium text-primary mb-1">📋 Next: Choose Your Plan</p>
+                            <p className="text-xs text-muted-foreground">
+                                After entering your UPI ID, you'll select a protection plan and complete a
+                                mock UPI payment. Your account is created only after successful payment.
+                            </p>
+                        </div>
+
+                        {/* Navigation */}
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={() => navigate("/register/kyc")}>
                                 <ArrowLeft className="h-4 w-4 mr-1" /> Back
                             </Button>
                             <Button
-                                id="reg-activate-btn"
+                                id="reg-upi-next-btn"
                                 size="lg"
                                 className="flex-1"
-                                onClick={handleActivate}
-                                disabled={!upiValid || loading}
+                                onClick={handleNext}
+                                disabled={!upiValid}
                             >
-                                {loading ? (
-                                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Activating...</>
-                                ) : (
-                                    "Confirm &amp; Activate Policy"
-                                )}
+                                Next — Choose Plan <ArrowRight className="h-4 w-4 ml-1" />
                             </Button>
                         </div>
                     </CardContent>

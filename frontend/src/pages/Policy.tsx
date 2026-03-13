@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,133 +8,184 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { workerDataApi } from "@/lib/api";
+import { Loader2 } from "lucide-react";
 
-const coverageData = [
-  { type: "Heavy Rain (>20mm)", payout: "60%", max: "₹1,200" },
-  { type: "Poor AQI (>300)", payout: "50%", max: "₹1,000" },
-  { type: "Heatwave (>42°C)", payout: "40%", max: "₹800" },
-  { type: "Platform Outage (>2hr)", payout: "45%", max: "₹900" },
-];
-
-const pastPolicies = [
-  { id: "POL-2026-0846", period: "17 Feb – 23 Feb 2026", premium: "₹35", claims: 1, payout: "₹450" },
-  { id: "POL-2026-0845", period: "10 Feb – 16 Feb 2026", premium: "₹35", claims: 0, payout: "₹0" },
-  { id: "POL-2026-0844", period: "3 Feb – 9 Feb 2026", premium: "₹32", claims: 2, payout: "₹720" },
-];
+interface PolicyData {
+  id: string;
+  policy_number?: string;
+  plan_name?: string;
+  premium?: number;
+  max_coverage?: number;
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+  auto_renew?: boolean;
+  coverage_snapshot?: Record<string, { payoutPercent?: number; maxPayout?: number }> | string;
+}
 
 const Policy = () => {
+  const navigate = useNavigate();
+  const { token } = useWorkerAuthStore();
+  const [loading, setLoading] = useState(true);
+  const [policies, setPolicies] = useState<PolicyData[]>([]);
+  const [activePolicy, setActivePolicy] = useState<PolicyData | null>(null);
   const [autoRenew, setAutoRenew] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const loadPolicies = async () => {
+      setLoading(true);
+      try {
+        const res = await workerDataApi.getMyPolicies(token);
+        const all = (res.data || []) as unknown as PolicyData[];
+        setPolicies(all);
+        const active = all.find((p) => p.status === "active") || null;
+        setActivePolicy(active);
+        if (active) setAutoRenew(active.auto_renew ?? true);
+      } catch (err) {
+        console.error("Policy load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPolicies();
+  }, [token]);
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const getCoverageData = (policy: PolicyData) => {
+    if (!policy.coverage_snapshot) return [];
+    const snapshot = typeof policy.coverage_snapshot === "string"
+      ? JSON.parse(policy.coverage_snapshot)
+      : policy.coverage_snapshot;
+    return Object.entries(snapshot).map(([key, val]: [string, Record<string, unknown>]) => ({
+      type: key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()),
+      payout: `${val.payoutPercent || 0}%`,
+      max: `₹${Number(val.maxPayout || 0).toLocaleString("en-IN")}`,
+    }));
+  };
+
+  if (loading) {
+    return (
+      <div>
+        <PageHeader title="Policy Details" description="Manage your insurance coverage" />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  const pastPolicies = policies.filter((p) => p.status !== "active");
+  const coverageData = activePolicy ? getCoverageData(activePolicy) : [];
 
   return (
       <div>
         <PageHeader title="Policy Details" description="Manage your insurance coverage" />
 
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="font-display text-lg">Standard Weekly Plan</CardTitle>
-                <CardDescription>Policy ID: POL-2026-0847</CardDescription>
+        {activePolicy ? (
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="font-display text-lg capitalize">{activePolicy.plan_name || "—"} Plan</CardTitle>
+                  <CardDescription>Policy ID: {activePolicy.policy_number || activePolicy.id?.slice(0, 8)}</CardDescription>
+                </div>
+                <StatusBadge status="active" />
               </div>
-              <StatusBadge status="active" />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹35/week</p></div>
-              <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹2,000/week</p></div>
-              <div><span className="text-muted-foreground">Valid</span><p className="font-medium">24 Feb – 2 Mar</p></div>
-              <div><span className="text-muted-foreground">Zone</span><p className="font-medium">Bandra, Mumbai</p></div>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Switch checked={autoRenew} onCheckedChange={setAutoRenew} />
-                <Label>Auto-renew policy</Label>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹{Number(activePolicy.premium || 0).toLocaleString("en-IN")}/week</p></div>
+                <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹{Number(activePolicy.max_coverage || 0).toLocaleString("en-IN")}/week</p></div>
+                <div><span className="text-muted-foreground">Valid</span><p className="font-medium">{formatDate(activePolicy.start_date)} – {formatDate(activePolicy.end_date)}</p></div>
+                <div><span className="text-muted-foreground">Status</span><p className="font-medium capitalize">{activePolicy.status}</p></div>
               </div>
-              <Dialog>
-                <DialogTrigger asChild><Button variant="outline">Upgrade Plan</Button></DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader><DialogTitle className="font-display">Choose a Plan</DialogTitle></DialogHeader>
-                  <RadioGroup defaultValue="standard" className="space-y-3">
-                    {[
-                      { value: "basic", label: "Basic", price: "₹19/week", coverage: "₹1,000" },
-                      { value: "standard", label: "Standard", price: "₹35/week", coverage: "₹2,000" },
-                      { value: "premium", label: "Premium", price: "₹59/week", coverage: "₹5,000" },
-                    ].map((plan) => (
-                      <div key={plan.value} className="flex items-center gap-3 border rounded-lg p-4">
-                        <RadioGroupItem value={plan.value} id={plan.value} />
-                        <Label htmlFor={plan.value} className="flex-1 cursor-pointer">
-                          <div className="flex justify-between">
-                            <span className="font-semibold">{plan.label}</span>
-                            <span className="text-primary font-semibold">{plan.price}</span>
-                          </div>
-                          <span className="text-sm text-muted-foreground">Max coverage: {plan.coverage}</span>
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                  <Button className="w-full mt-4">Confirm Upgrade</Button>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardContent>
-        </Card>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Switch checked={autoRenew} onCheckedChange={setAutoRenew} />
+                  <Label>Auto-renew policy</Label>
+                </div>
+                <Button variant="outline" onClick={() => navigate("/plans")}>
+                  Upgrade Plan
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mb-6">
+            <CardContent className="pt-6 text-center">
+              <p className="text-muted-foreground mb-4">No active policy found.</p>
+              <Button onClick={() => navigate("/plans")}>Browse Plans</Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Coverage Breakdown */}
-        <Card className="mb-6">
-          <CardHeader><CardTitle className="font-display text-lg">Coverage Breakdown</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Disruption Type</TableHead>
-                  <TableHead>Payout %</TableHead>
-                  <TableHead>Max Payout</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {coverageData.map((c) => (
-                  <TableRow key={c.type}>
-                    <TableCell>{c.type}</TableCell>
-                    <TableCell><Badge variant="secondary">{c.payout}</Badge></TableCell>
-                    <TableCell>{c.max}</TableCell>
+        {coverageData.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader><CardTitle className="font-display text-lg">Coverage Breakdown</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Disruption Type</TableHead>
+                    <TableHead>Payout %</TableHead>
+                    <TableHead>Max Payout</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {coverageData.map((c) => (
+                    <TableRow key={c.type}>
+                      <TableCell>{c.type}</TableCell>
+                      <TableCell><Badge variant="secondary">{c.payout}</Badge></TableCell>
+                      <TableCell>{c.max}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Policy History */}
-        <Card>
-          <CardHeader><CardTitle className="font-display text-lg">Policy History</CardTitle></CardHeader>
-          <CardContent>
-            <Accordion type="single" collapsible>
-              {pastPolicies.map((p) => (
-                <AccordionItem key={p.id} value={p.id}>
-                  <AccordionTrigger className="text-sm">
-                    <div className="flex items-center gap-4">
-                      <span className="font-medium">{p.id}</span>
-                      <span className="text-muted-foreground">{p.period}</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="grid grid-cols-3 gap-4 text-sm pl-4">
-                      <div><span className="text-muted-foreground">Premium</span><p>{p.premium}</p></div>
-                      <div><span className="text-muted-foreground">Claims</span><p>{p.claims}</p></div>
-                      <div><span className="text-muted-foreground">Total Payout</span><p>{p.payout}</p></div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </CardContent>
-        </Card>
+        {pastPolicies.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="font-display text-lg">Policy History</CardTitle></CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible>
+                {pastPolicies.map((p) => (
+                  <AccordionItem key={p.id} value={p.id}>
+                    <AccordionTrigger className="text-sm">
+                      <div className="flex items-center gap-4">
+                        <span className="font-medium">{p.policy_number || p.id?.slice(0, 8)}</span>
+                        <span className="text-muted-foreground">{formatDate(p.start_date)} – {formatDate(p.end_date)}</span>
+                        <StatusBadge status={p.status as "active" | "expired" | "cancelled"} />
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid grid-cols-3 gap-4 text-sm pl-4">
+                        <div><span className="text-muted-foreground">Premium</span><p>₹{Number(p.premium || 0).toLocaleString("en-IN")}</p></div>
+                        <div><span className="text-muted-foreground">Max Coverage</span><p>₹{Number(p.max_coverage || 0).toLocaleString("en-IN")}</p></div>
+                        <div><span className="text-muted-foreground">Plan</span><p className="capitalize">{p.plan_name || "—"}</p></div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
+        )}
       </div>
   );
 };

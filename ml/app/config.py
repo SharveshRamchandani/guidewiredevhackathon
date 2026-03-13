@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     openweathermap_api_key: str = "mock-weather-key"
     aqicn_api_key: str = "mock-aqi-key"
+    groq_api_key: str = ""
 
     class Config:
         env_file = ".env"

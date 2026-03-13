@@ -97,8 +97,4 @@ ON CONFLICT (city_id, name) DO NOTHING;
 -- SEED: Plans
 -- ============================================================
 
-INSERT INTO plans (name, weekly_premium, max_coverage, coverage_config) VALUES
-  ('basic', 19.00, 500.00, '{"Heavy Rain": {"payoutPercent": 50, "maxPayout": 250}, "Poor AQI": {"payoutPercent": 30, "maxPayout": 150}, "Heatwave": {"payoutPercent": 30, "maxPayout": 150}, "Platform Outage": {"payoutPercent": 60, "maxPayout": 300}}'),
-  ('standard', 35.00, 1000.00, '{"Heavy Rain": {"payoutPercent": 50, "maxPayout": 500}, "Poor AQI": {"payoutPercent": 40, "maxPayout": 400}, "Heatwave": {"payoutPercent": 40, "maxPayout": 400}, "Platform Outage": {"payoutPercent": 60, "maxPayout": 600}}'),
-  ('premium', 59.00, 2000.00, '{"Heavy Rain": {"payoutPercent": 50, "maxPayout": 1000}, "Poor AQI": {"payoutPercent": 40, "maxPayout": 800}, "Heatwave": {"payoutPercent": 40, "maxPayout": 800}, "Platform Outage": {"payoutPercent": 60, "maxPayout": 1200}}')
-ON CONFLICT (name) DO NOTHING;
+
