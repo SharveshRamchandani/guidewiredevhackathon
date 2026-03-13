@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -11,20 +11,63 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, FileX } from "lucide-react";
+import { CalendarIcon, FileX, Loader2 } from "lucide-react";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { workerDataApi } from "@/lib/api";
 
-const claimsData = [
-  { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const, fraudScore: 12, zone: "Bandra" },
-  { id: "CLM-002", date: "25 Feb 2026", type: "Poor AQI", amount: "₹320", status: "pending" as const, fraudScore: 8, zone: "Bandra" },
-  { id: "CLM-003", date: "20 Feb 2026", type: "Platform Outage", amount: "₹280", status: "rejected" as const, fraudScore: 65, zone: "Bandra" },
-  { id: "CLM-004", date: "15 Feb 2026", type: "Heatwave", amount: "₹400", status: "approved" as const, fraudScore: 5, zone: "Bandra" },
-];
+interface ClaimData {
+  id: string;
+  claim_number?: string;
+  type: string;
+  amount: number;
+  status: "approved" | "pending" | "rejected";
+  fraud_score?: number;
+  created_at: string;
+  zone_name?: string;
+}
 
 const Claims = () => {
+  const { token } = useWorkerAuthStore();
   const [tab, setTab] = useState("all");
-  const [selectedClaim, setSelectedClaim] = useState<typeof claimsData[0] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [claims, setClaims] = useState<ClaimData[]>([]);
+  const [selectedClaim, setSelectedClaim] = useState<ClaimData | null>(null);
 
-  const filtered = tab === "all" ? claimsData : claimsData.filter((c) => c.status === tab);
+  useEffect(() => {
+    if (!token) return;
+
+    const loadClaims = async () => {
+      setLoading(true);
+      try {
+        const res = await workerDataApi.getMyClaims(token);
+        setClaims((res.data || []) as unknown as ClaimData[]);
+      } catch (err) {
+        console.error("Claims load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadClaims();
+  }, [token]);
+
+  const formatDate = (iso: string) => {
+    if (!iso) return "";
+    return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const filtered = tab === "all" ? claims : claims.filter((c) => c.status === tab);
+
+  if (loading) {
+    return (
+      <div>
+        <PageHeader title="Claims" description="Track your disruption claims and payouts" />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
       <div>
@@ -34,7 +77,7 @@ const Claims = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="all">All ({claims.length})</TabsTrigger>
               <TabsTrigger value="approved">Approved</TabsTrigger>
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="rejected">Rejected</TabsTrigger>
@@ -57,17 +100,17 @@ const Claims = () => {
               <Card key={c.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">{c.id}</span>
+                    <span className="font-medium text-sm">{c.claim_number || c.id.slice(0, 8)}</span>
                     <StatusBadge status={c.status} />
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant="secondary">{c.type}</Badge>
-                    <span className="text-sm text-muted-foreground">{c.date}</span>
+                    <span className="text-sm text-muted-foreground">{formatDate(c.created_at)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold font-display">{c.amount}</span>
+                    <span className="text-lg font-bold font-display">₹{Number(c.amount).toLocaleString("en-IN")}</span>
                     <Button variant="ghost" size="sm" onClick={() => setSelectedClaim(c)}>View Details</Button>
                   </div>
                 </CardContent>
@@ -80,7 +123,7 @@ const Claims = () => {
         <Sheet open={!!selectedClaim} onOpenChange={() => setSelectedClaim(null)}>
           <SheetContent>
             <SheetHeader>
-              <SheetTitle className="font-display">{selectedClaim?.id}</SheetTitle>
+              <SheetTitle className="font-display">{selectedClaim?.claim_number || selectedClaim?.id?.slice(0, 8)}</SheetTitle>
               <SheetDescription>Claim details and fraud analysis</SheetDescription>
             </SheetHeader>
             {selectedClaim && (
@@ -97,25 +140,31 @@ const Claims = () => {
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Date</span>
-                  <span className="text-sm">{selectedClaim.date}</span>
+                  <span className="text-sm">{formatDate(selectedClaim.created_at)}</span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Amount</span>
-                  <span className="text-sm font-semibold">{selectedClaim.amount}</span>
+                  <span className="text-sm font-semibold">₹{Number(selectedClaim.amount).toLocaleString("en-IN")}</span>
                 </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Zone</span>
-                  <span className="text-sm">{selectedClaim.zone}</span>
-                </div>
+                {selectedClaim.zone_name && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Zone</span>
+                      <span className="text-sm">{selectedClaim.zone_name}</span>
+                    </div>
+                  </>
+                )}
                 <Separator />
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Fraud Score</span>
-                    <Badge variant="outline">{selectedClaim.fraudScore < 30 ? "Low" : selectedClaim.fraudScore < 60 ? "Medium" : "High"}</Badge>
+                    <Badge variant="outline">
+                      {(selectedClaim.fraud_score ?? 0) < 30 ? "Low" : (selectedClaim.fraud_score ?? 0) < 60 ? "Medium" : "High"}
+                    </Badge>
                   </div>
-                  <Progress value={selectedClaim.fraudScore} className="h-2" />
+                  <Progress value={selectedClaim.fraud_score ?? 0} className="h-2" />
                 </div>
               </div>
             )}

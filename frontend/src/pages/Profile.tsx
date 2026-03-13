@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,25 +11,80 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { workerDataApi } from "@/lib/api";
+import { Loader2 } from "lucide-react";
 
 const Profile = () => {
   const { toast } = useToast();
-  const { worker } = useWorkerAuthStore();
-  
-  const [name, setName] = useState(worker?.name || "Ramesh Kumar");
-  const [phone, setPhone] = useState(worker?.phone || "");
-  const [zone, setZone] = useState("Bandra");
-  const [earnings, setEarnings] = useState("5000");
+  const { worker, token } = useWorkerAuthStore();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [zone, setZone] = useState("");
+  const [earnings, setEarnings] = useState("");
 
   const [sms, setSms] = useState(true);
   const [push, setPush] = useState(true);
   const [whatsapp, setWhatsapp] = useState(false);
 
+  useEffect(() => {
+    if (!token) return;
+
+    const loadProfile = async () => {
+      setLoading(true);
+      try {
+        const res = await workerDataApi.getProfile(token);
+        const data = res.data;
+        if (data) {
+          setProfile(data);
+          setName((data.name as string) || "");
+          setPhone((data.phone as string) || "");
+          setZone((data.zone_name as string) || "");
+          setEarnings(String(data.avg_weekly_earning || data.weekly_earnings || ""));
+
+          // Parse notification prefs if available
+          const notifs = data.notifications as Record<string, boolean> | undefined;
+          if (notifs) {
+            setSms(notifs.sms ?? true);
+            setPush(notifs.push ?? true);
+            setWhatsapp(notifs.whatsapp ?? false);
+          }
+        }
+      } catch (err) {
+        console.error("Profile load error:", err);
+        // Fallback to auth store data
+        if (worker) {
+          setName(worker.name || "");
+          setPhone(worker.phone || "");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [token, worker]);
+
   const handleSave = () => {
     toast({ title: "Profile updated", description: "Your changes have been saved." });
   };
-  
-  const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "RK";
+
+  const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "W";
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl">
+        <PageHeader title="Profile" description="Manage your account settings" />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  const isKycVerified = profile?.is_kyc_verified === true || profile?.kyc_status === "verified";
 
   return (
       <div className="max-w-2xl">
@@ -41,10 +96,13 @@ const Profile = () => {
             <AvatarFallback className="text-xl bg-primary text-primary-foreground font-display">{initials}</AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold font-display">{name}</h2>
+            <h2 className="text-xl font-bold font-display">{name || "Worker"}</h2>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="secondary">Worker</Badge>
-              <Badge variant="outline" className="bg-success/15 text-success border-success/30">KYC Verified</Badge>
+              <Badge variant="outline" className={isKycVerified ? "bg-success/15 text-success border-success/30" : "bg-warning/15 text-warning border-warning/30"}>
+                {isKycVerified ? "KYC Verified" : "KYC Pending"}
+              </Badge>
+              {profile?.platform && <Badge variant="outline">{profile.platform as string}</Badge>}
             </div>
           </div>
         </div>
