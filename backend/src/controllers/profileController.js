@@ -143,7 +143,7 @@ async function updateContactDetails(req, res, next) {
  */
 async function getProfile(req, res, next) {
   try {
-    const workerId = req.user.id;
+    const workerId = req.worker.id;
     const { rows } = await query(
       `SELECT w.id, w.name, w.phone, w.email, w.platform, w.city,
               w.upi, w.avg_weekly_earning, w.is_kyc_verified,

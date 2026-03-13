@@ -21,7 +21,7 @@ def get_weather(zone_id: str) -> dict:
         trigger_type = "none"
 
     return {
-        "zone_id": int(zone_id),
+        "zone_id": zone_id,
         "temperature_celsius": temperature,
         "rainfall_mm": rainfall_mm,
         "threshold_breached": threshold_breached,

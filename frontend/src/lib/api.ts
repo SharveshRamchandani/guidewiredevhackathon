@@ -142,6 +142,104 @@ export const paymentApi = {
         }>(`/api/payment/verify/${txnId}`),
 };
 
+// ─── Worker Data APIs ─────────────────────────────────────────────────────────
+
+export const workerDataApi = {
+    getProfile: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            '/api/profile', {}, token
+        ),
+
+    getMyPolicies: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            '/api/policy/my', {}, token
+        ),
+
+    getPolicy: (id: string, token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            `/api/policy/${id}`, {}, token
+        ),
+
+    getMyClaims: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            '/api/claims/my', {}, token
+        ),
+
+    getMyPayouts: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            '/api/payouts/my', {}, token
+        ),
+
+    renewPolicy: (id: string, token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            `/api/policy/${id}/renew`, { method: 'POST' }, token
+        ),
+};
+
+// ─── Admin Data APIs ──────────────────────────────────────────────────────────
+
+export const adminDataApi = {
+    getDashboard: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            '/api/admin/dashboard', {}, token
+        ),
+
+    getWorkers: (token: string, params?: Record<string, string>) => {
+        const qs = params
+            ? new URLSearchParams(
+                  Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+              ).toString()
+            : '';
+        return apiFetch<{ success: boolean; data: { workers: Array<Record<string, unknown>>; total: number } }>(
+            `/api/admin/workers${qs ? `?${qs}` : ''}`, {}, token
+        );
+    },
+
+    getClaims: (token: string, params?: Record<string, string>) => {
+        const qs = params
+            ? new URLSearchParams(
+                  Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+              ).toString()
+            : '';
+        return apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            `/api/admin/claims${qs ? `?${qs}` : ''}`, {}, token
+        );
+    },
+
+    getPolicies: (token: string, params?: Record<string, string>) => {
+        const qs = params
+            ? new URLSearchParams(
+                  Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+              ).toString()
+            : '';
+        return apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            `/api/admin/policies${qs ? `?${qs}` : ''}`, {}, token
+        );
+    },
+
+    getEvents: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            '/api/admin/events', {}, token
+        ),
+
+    getAnalytics: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            '/api/admin/analytics', {}, token
+        ),
+
+    approveClaim: (id: string, token: string) =>
+        apiFetch<{ success: boolean }>(
+            `/api/admin/claims/${id}/approve`, { method: 'POST' }, token
+        ),
+
+    rejectClaim: (id: string, reason: string, token: string) =>
+        apiFetch<{ success: boolean }>(
+            `/api/admin/claims/${id}/reject`,
+            { method: 'POST', body: JSON.stringify({ reason }) },
+            token
+        ),
+};
+
 // ─── Admin Auth ───────────────────────────────────────────────────────────────
 
 export const adminApi = {

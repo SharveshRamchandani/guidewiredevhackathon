@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sidebarGroups, platformGroup } from "@/config/adminNavConfig";
 import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
+import { ExpandableChatDemo } from "@/components/ExpandableChatDemo";
 import { useEffect } from "react";
 export function AdminLayout() {
   const location = useLocation();
@@ -281,6 +282,7 @@ export function AdminLayout() {
       <AdminMobileNavDock />
 
       <NotificationsPanel open={notificationsOpen} onOpenChange={handleNotifOpen} />
+      <ExpandableChatDemo />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
@@ -10,47 +10,137 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
+import { adminDataApi } from "@/lib/api";
 
-const workers = [
-  { id: "W-001", name: "Ramesh Kumar", phone: "9876543210", platform: "Swiggy", zone: "Bandra", city: "Mumbai", kyc: "verified" as const, risk: "low" as const, earnings: "₹5,000", policies: 12, claims: 7 },
-  { id: "W-002", name: "Priya Sharma", phone: "9876543211", platform: "Zomato", zone: "Rohini", city: "Delhi", kyc: "verified" as const, risk: "medium" as const, earnings: "₹4,200", policies: 8, claims: 3 },
-  { id: "W-003", name: "Arjun Mehta", phone: "9876543212", platform: "Amazon", zone: "Whitefield", city: "Bangalore", kyc: "pending" as const, risk: "high" as const, earnings: "₹6,100", policies: 15, claims: 11 },
-];
+interface WorkerData {
+  id: string;
+  name: string;
+  phone: string;
+  platform?: string;
+  zone_name?: string;
+  city?: string;
+  is_kyc_verified?: boolean;
+  kyc_status?: string;
+  risk_level?: string;
+  risk_score?: number;
+  avg_weekly_earning?: number;
+  active?: boolean;
+  created_at?: string;
+}
 
 const AdminWorkers = () => {
-  const [selected, setSelected] = useState<typeof workers[0] | null>(null);
+  const { token } = useAdminAuthStore();
+  const [workers, setWorkers] = useState<WorkerData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<WorkerData | null>(null);
   const [search, setSearch] = useState("");
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [total, setTotal] = useState(0);
 
-  const filtered = workers.filter(w => w.name.toLowerCase().includes(search.toLowerCase()) || w.id.toLowerCase().includes(search.toLowerCase()));
+  useEffect(() => {
+    if (!token) return;
+
+    const loadWorkers = async () => {
+      setLoading(true);
+      try {
+        const params: Record<string, string> = { limit: "50" };
+        if (platformFilter && platformFilter !== "all") params.platform = platformFilter;
+        const res = await adminDataApi.getWorkers(token, params);
+        const data = res.data;
+        setWorkers((data?.workers || []) as unknown as WorkerData[]);
+        setTotal(data?.total || 0);
+      } catch (err) {
+        console.error("Workers load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadWorkers();
+  }, [token, platformFilter]);
+
+  const filtered = workers.filter(
+    (w) =>
+      (w.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (w.phone || "").includes(search) ||
+      (w.id || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const getKycStatus = (w: WorkerData) => {
+    if (w.is_kyc_verified === true || w.kyc_status === "verified") return "verified" as const;
+    return "pending" as const;
+  };
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
 
   return (
     <>
-      <PageHeader title="Workers Management" description="View and manage registered workers" />
+      <PageHeader title="Workers Management" description={`${total} registered workers`} />
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search workers..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
-        <Select><SelectTrigger className="w-40"><SelectValue placeholder="Platform" /></SelectTrigger><SelectContent><SelectItem value="swiggy">Swiggy</SelectItem><SelectItem value="zomato">Zomato</SelectItem><SelectItem value="amazon">Amazon</SelectItem></SelectContent></Select>
-        <Select><SelectTrigger className="w-40"><SelectValue placeholder="Zone" /></SelectTrigger><SelectContent><SelectItem value="bandra">Bandra</SelectItem><SelectItem value="rohini">Rohini</SelectItem><SelectItem value="whitefield">Whitefield</SelectItem></SelectContent></Select>
-        <Button><Search className="h-4 w-4 mr-1" /> Search</Button>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search workers..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <Select value={platformFilter} onValueChange={setPlatformFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Platform" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Platforms</SelectItem>
+            <SelectItem value="Swiggy">Swiggy</SelectItem>
+            <SelectItem value="Zomato">Zomato</SelectItem>
+            <SelectItem value="Amazon">Amazon</SelectItem>
+            <SelectItem value="Zepto">Zepto</SelectItem>
+            <SelectItem value="Blinkit">Blinkit</SelectItem>
+            <SelectItem value="Dunzo">Dunzo</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <Table>
-        <TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Name</TableHead><TableHead>Platform</TableHead><TableHead>Zone</TableHead><TableHead>KYC</TableHead><TableHead>Risk</TableHead><TableHead></TableHead></TableRow></TableHeader>
-        <TableBody>
-          {filtered.map((w) => (
-            <TableRow key={w.id}>
-              <TableCell className="font-medium">{w.id}</TableCell>
-              <TableCell>{w.name}</TableCell>
-              <TableCell><Badge variant="secondary">{w.platform}</Badge></TableCell>
-              <TableCell>{w.zone}</TableCell>
-              <TableCell><StatusBadge status={w.kyc} /></TableCell>
-              <TableCell><StatusBadge status={w.risk} /></TableCell>
-              <TableCell><Button variant="ghost" size="sm" onClick={() => setSelected(w)}>View</Button></TableCell>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Platform</TableHead>
+              <TableHead>Zone</TableHead>
+              <TableHead>KYC</TableHead>
+              <TableHead>Risk</TableHead>
+              <TableHead>Joined</TableHead>
+              <TableHead></TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No workers found.</TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((w) => (
+                <TableRow key={w.id}>
+                  <TableCell className="font-medium">{w.name || "—"}</TableCell>
+                  <TableCell>{w.phone}</TableCell>
+                  <TableCell>{w.platform ? <Badge variant="secondary">{w.platform}</Badge> : "—"}</TableCell>
+                  <TableCell>{w.zone_name || "—"}</TableCell>
+                  <TableCell><StatusBadge status={getKycStatus(w)} /></TableCell>
+                  <TableCell><StatusBadge status={(w.risk_level as "low" | "medium" | "high") || "low"} /></TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatDate(w.created_at)}</TableCell>
+                  <TableCell><Button variant="ghost" size="sm" onClick={() => setSelected(w)}>View</Button></TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
 
       <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>
         <SheetContent className="w-full sm:max-w-lg">
@@ -58,24 +148,33 @@ const AdminWorkers = () => {
           {selected && (
             <ScrollArea className="h-[calc(100vh-100px)] mt-4">
               <Tabs defaultValue="profile">
-                <TabsList className="w-full"><TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger><TabsTrigger value="policies" className="flex-1">Policies</TabsTrigger><TabsTrigger value="claims" className="flex-1">Claims</TabsTrigger><TabsTrigger value="fraud" className="flex-1">Fraud</TabsTrigger></TabsList>
+                <TabsList className="w-full">
+                  <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
+                  <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+                  <TabsTrigger value="actions" className="flex-1">Actions</TabsTrigger>
+                </TabsList>
                 <TabsContent value="profile" className="space-y-3 mt-4">
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-muted-foreground">ID</span><p>{selected.id}</p></div>
+                    <div><span className="text-muted-foreground">ID</span><p className="truncate">{selected.id}</p></div>
                     <div><span className="text-muted-foreground">Phone</span><p>{selected.phone}</p></div>
-                    <div><span className="text-muted-foreground">Platform</span><p>{selected.platform}</p></div>
-                    <div><span className="text-muted-foreground">Zone</span><p>{selected.zone}, {selected.city}</p></div>
-                    <div><span className="text-muted-foreground">Earnings</span><p>{selected.earnings}/week</p></div>
-                    <div><span className="text-muted-foreground">KYC</span><StatusBadge status={selected.kyc} /></div>
+                    <div><span className="text-muted-foreground">Platform</span><p>{selected.platform || "—"}</p></div>
+                    <div><span className="text-muted-foreground">Zone</span><p>{selected.zone_name || "—"}{selected.city ? `, ${selected.city}` : ""}</p></div>
+                    <div><span className="text-muted-foreground">Earnings</span><p>₹{Number(selected.avg_weekly_earning || 0).toLocaleString("en-IN")}/week</p></div>
+                    <div><span className="text-muted-foreground">KYC</span><StatusBadge status={getKycStatus(selected)} /></div>
+                    <div><span className="text-muted-foreground">Status</span><Badge variant={selected.active !== false ? "outline" : "destructive"}>{selected.active !== false ? "Active" : "Inactive"}</Badge></div>
+                    <div><span className="text-muted-foreground">Risk</span><StatusBadge status={(selected.risk_level as "low" | "medium" | "high") || "low"} /></div>
                   </div>
-                  <div className="pt-4 space-y-2">
+                </TabsContent>
+                <TabsContent value="details" className="mt-4 text-sm text-muted-foreground">
+                  <p>Joined: {formatDate(selected.created_at)}</p>
+                  {selected.risk_score !== undefined && <p className="mt-2">Risk Score: {selected.risk_score}</p>}
+                </TabsContent>
+                <TabsContent value="actions" className="mt-4">
+                  <div className="space-y-2">
                     <Textarea placeholder="Add note when flagging..." />
                     <Button variant="destructive" size="sm">Flag Worker</Button>
                   </div>
                 </TabsContent>
-                <TabsContent value="policies" className="mt-4"><p className="text-sm text-muted-foreground">{selected.policies} policies found.</p></TabsContent>
-                <TabsContent value="claims" className="mt-4"><p className="text-sm text-muted-foreground">{selected.claims} claims found.</p></TabsContent>
-                <TabsContent value="fraud" className="mt-4"><StatusBadge status={selected.risk} className="mb-2" /><p className="text-sm text-muted-foreground">Risk assessment details.</p></TabsContent>
               </Tabs>
             </ScrollArea>
           )}
