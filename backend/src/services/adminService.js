@@ -96,10 +96,10 @@ async function updateWorkerKyc(workerId, status, adminId) {
 
   const { rows } = await query(
     `UPDATE workers
-     SET kyc_status = $1, updated_at = NOW()
+     SET is_kyc_verified = $1, updated_at = NOW()
      WHERE id = $2
-     RETURNING id, name, phone, kyc_status`,
-    [status, workerId]
+     RETURNING id, name, phone, is_kyc_verified`,
+    [status === 'verified', workerId]
   );
   if (!rows.length) { const e = new Error('Worker not found.'); e.statusCode = 404; throw e; }
 

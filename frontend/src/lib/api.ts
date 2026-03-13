@@ -105,7 +105,15 @@ export const workerApi = {
                 headers: { Authorization: `Bearer ${registrationToken}` },
             }
         ),
+
+    getPlans: () =>
+        apiFetch<{ success: boolean; data: Array<{ id: string; name: string; weekly_premium: number; max_coverage: number; coverage_config: any }> }>('/api/policy/plans'),
+
+    getMyPolicies: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<any> }>('/api/policy/my', {}, token),
 };
+
+
 
 // ─── Mock Payment ─────────────────────────────────────────────────────────────
 

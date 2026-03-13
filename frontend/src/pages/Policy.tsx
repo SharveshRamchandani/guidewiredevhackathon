@@ -10,47 +10,117 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-const coverageData = [
-  { type: "Heavy Rain (>20mm)", payout: "60%", max: "₹1,200" },
-  { type: "Poor AQI (>300)", payout: "50%", max: "₹1,000" },
-  { type: "Heatwave (>42°C)", payout: "40%", max: "₹800" },
-  { type: "Platform Outage (>2hr)", payout: "45%", max: "₹900" },
-];
-
-const pastPolicies = [
-  { id: "POL-2026-0846", period: "17 Feb – 23 Feb 2026", premium: "₹35", claims: 1, payout: "₹450" },
-  { id: "POL-2026-0845", period: "10 Feb – 16 Feb 2026", premium: "₹35", claims: 0, payout: "₹0" },
-  { id: "POL-2026-0844", period: "3 Feb – 9 Feb 2026", premium: "₹32", claims: 2, payout: "₹720" },
-];
+import { workerApi } from "@/lib/api";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { useToast } from "@/hooks/use-toast";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Shield, Eye } from "lucide-react";
 
 const Policy = () => {
-  const [autoRenew, setAutoRenew] = useState(true);
+  const { token, worker } = useWorkerAuthStore();
+  const { toast } = useToast();
   const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [allPolicies, setAllPolicies] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [autoRenew, setAutoRenew] = useState(true);
+  const [selectedPlanId, setSelectedPlanId] = useState("standard");
+
+  const activePolicy = allPolicies.find((p) => p.status === "active");
+
+  const pastPolicies = allPolicies
+    .filter((p) => p.status !== "active")
+    .slice(0, 5)
+    .map((p) => ({
+      id: p.policy_number,
+      period: `${new Date(p.start_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} – ${new Date(p.end_date).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}`,
+      premium: `₹${p.premium}`,
+      claims: 0, // TODO: aggregate from claims API
+      payout: "₹0", // TODO: sum payouts
+    }));
+
+  const coverageConfig = activePolicy?.coverage_snapshot || plans.find((p) => p.id === activePolicy?.plan_id)?.coverage_config || {};
+  const coverageData = coverageConfig
+    ? Object.entries(coverageConfig).map(([type, config]) => ({
+        type,
+        payout: `${Math.round((config as any).payoutPercent || 0)}%`,
+        max: `₹${Math.round((config as any).maxPayout || 0).toLocaleString()}`,
+      }))
+    : [];
+
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError(null);
+        const [policiesRes, plansRes] = await Promise.all([
+          workerApi.getMyPolicies(token),
+          workerApi.getPlans(),
+        ]);
+        setAllPolicies(policiesRes.data || []);
+        setPlans(plansRes.data || []);
+      } catch (err: any) {
+        setError(err.message);
+        toast({
+          title: "Failed to load policies",
+          description: err.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [token]);
+
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
       <div>
         <PageHeader title="Policy Details" description="Manage your insurance coverage" />
 
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="font-display text-lg">Standard Weekly Plan</CardTitle>
-                <CardDescription>Policy ID: POL-2026-0847</CardDescription>
+        {error && (
+          <div className="mb-6">
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        )}
+
+        {activePolicy ? (
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="font-display text-lg">{activePolicy.plan_name}</CardTitle>
+                  <CardDescription>Policy ID: {activePolicy.policy_number}</CardDescription>
+                </div>
+                <StatusBadge status={activePolicy.status} />
               </div>
-              <StatusBadge status="active" />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹35/week</p></div>
-              <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹2,000/week</p></div>
-              <div><span className="text-muted-foreground">Valid</span><p className="font-medium">24 Feb – 2 Mar</p></div>
-              <div><span className="text-muted-foreground">Zone</span><p className="font-medium">Bandra, Mumbai</p></div>
-            </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹{activePolicy.premium}/week</p></div>
+                <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹{Math.round(activePolicy.max_coverage).toLocaleString()}/week</p></div>
+                <div><span className="text-muted-foreground">Valid</span><p className="font-medium">{new Date(activePolicy.start_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} – {new Date(activePolicy.end_date).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</p></div>
+                <div><span className="text-muted-foreground">Zone</span><p className="font-medium">{worker?.platform || "Your Zone"}</p></div>
+              </div>
+
             <Separator />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -58,9 +128,13 @@ const Policy = () => {
                 <Label>Auto-renew policy</Label>
               </div>
               <Dialog>
-                <Button variant="outline" onClick={() => navigate("/plans")}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Shield className="h-4 w-4 mr-1" />
                     Upgrade Plan
-                    </Button>
+                  </Button>
+                </DialogTrigger>
+
                 <DialogContent className="max-w-lg">
                   <DialogHeader><DialogTitle className="font-display">Choose a Plan</DialogTitle></DialogHeader>
                   <RadioGroup defaultValue="standard" className="space-y-3">
@@ -87,7 +161,11 @@ const Policy = () => {
             </div>
           </CardContent>
         </Card>
-
+        ) : (
+          <Card className="mb-6 p-8 text-center bg-muted/50">
+            <p className="text-muted-foreground">You don't have an active policy right now.</p>
+          </Card>
+        )}
         {/* Coverage Breakdown */}
         <Card className="mb-6">
           <CardHeader><CardTitle className="font-display text-lg">Coverage Breakdown</CardTitle></CardHeader>

@@ -40,26 +40,121 @@ This is the **data layer** for GigShield - an income protection insurance platfo
 
 ## Database Schema (PostgreSQL)
 
-### Core Tables
+### Database Schema Details (PostgreSQL)
 
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| **workers** | Gig worker profiles | phone, name, platform, zone_id, weekly_earnings, upi, kyc_status, risk_level |
-| **admins** | Admin users for platform management | email, password_hash, name, role, two_fa_secret |
-| **policies** | Insurance policies | worker_id, plan_id, premium, max_coverage, status, auto_renew, start_date, end_date |
-| **claims** | Disruption claims | worker_id, policy_id, event_id, type, amount, status, fraud_score, gps_match |
-| **payouts** | UPI payouts to workers | claim_id, worker_id, amount, status, upi, initiated_at, completed_at |
-| **disruption_events** | Weather/AQI/outage events | type, zone_id, severity, value, source, verified, claims_generated |
-| **system_config** | Engine configuration | engine_active, check_interval_minutes, payout_delay_seconds, thresholds |
-| **audit_logs** | Admin action history | user_id, user_type, action, field, old_value, new_value |
+#### Core Tables
 
-### Supporting Tables
+- **`workers`**: Gig worker profiles on the platform.
+  - `id` (UUID): Primary Key.
+  - `phone` (VARCHAR): Unique mobile number.
+  - `name` (VARCHAR): Full name.
+  - `platform` (VARCHAR): Swiggy, Zomato, Amazon, Zepto, Blinkit, Dunzo.
+  - `city_id` / `zone_id` (UUID): Links to operating locations.
+  - `weekly_earnings` (NUMERIC): Reported weekly income.
+  - `aadhaar_last4` (VARCHAR): Masked ID for KYC.
+  - `upi` (VARCHAR): UPI ID for payouts.
+  - `kyc_status` (VARCHAR): 'pending', 'verified'.
+  - `risk_level` (VARCHAR): 'low','medium','high'.
+  - `notifications` (JSONB): Preferences for sms, push, whatsapp.
+  - `is_active` (BOOLEAN): Worker active status.
+  - `created_at` / `updated_at` (TIMESTAMPTZ): Timestamps.
 
-| Table | Purpose |
-|-------|---------|
-| **cities** | City definitions (Mumbai, Delhi, Bangalore) |
-| **zones** | Zone definitions with risk levels (Bandra, Rohini, etc.) |
-| **plans** | Policy plans (basic, standard, premium) with coverage config |
+- **`admins`**: Platform administrators.
+  - `id` (UUID): Primary Key.
+  - `email` (VARCHAR): Unique login email.
+  - `password_hash` (TEXT): Encrypted password.
+  - `name` (VARCHAR): Admin name.
+  - `role` (VARCHAR): Role (default: 'admin').
+  - `two_fa_secret` (TEXT): Secret for 2FA.
+  - `notifications` (JSONB): Preferences for email, slack, criticalSms.
+  - `is_active` (BOOLEAN): Admin active status.
+  - `created_at` / `updated_at` (TIMESTAMPTZ): Timestamps.
+
+- **`policies`**: Active insurance policies for gig workers.
+  - `id` (UUID): Primary Key.
+  - `policy_number` (VARCHAR): E.g., POL-2026-0847.
+  - `worker_id` / `plan_id` (UUID): Who holds the policy and which plan.
+  - `premium` (NUMERIC): Policy cost.
+  - `max_coverage` (NUMERIC): Maximum payout overall.
+  - `status` (VARCHAR): 'active', 'expired', 'cancelled'.
+  - `auto_renew` (BOOLEAN): Auto-renewal status.
+  - `start_date` / `end_date` (DATE): Policy duration.
+  - `coverage_snapshot` (JSONB): Coverage rules applied.
+  - `created_at` / `updated_at` (TIMESTAMPTZ): Timestamps.
+
+- **`disruption_events`**: Disruption events creating claims.
+  - `id` (UUID): Primary Key.
+  - `event_number` (VARCHAR): E.g., EVT-001.
+  - `type` (VARCHAR): 'Heavy Rain', 'Poor AQI', etc.
+  - `zone_id` / `city_id` (UUID): Affected areas.
+  - `severity` (VARCHAR): 'low', 'medium', 'high', 'critical'.
+  - `value` (VARCHAR): Detail (e.g., "45mm", "AQI 340").
+  - `source` (VARCHAR): Data origin.
+  - `verified` (BOOLEAN): Event verification.
+  - `claims_generated` (INT): Claims created.
+  - `triggered_at` (TIMESTAMPTZ): Disruption trigger time.
+
+- **`claims`**: Worker disruption claims.
+  - `id` (UUID): Primary Key.
+  - `claim_number` (VARCHAR): E.g., CLM-001.
+  - `worker_id` / `policy_id` / `event_id` (UUID): Claim identifiers.
+  - `type` (VARCHAR): Corresponds to `disruption_events`.
+  - `amount` (NUMERIC): Requested compensation.
+  - `approved_amount` (NUMERIC): Sanctioned compensation.
+  - `status` (VARCHAR): 'pending', 'approved', 'rejected'.
+  - `fraud_score` (NUMERIC): Likelihood of fraud (0-100).
+  - `gps_match` (BOOLEAN): Worker GPS matching zone.
+  - `velocity` (NUMERIC): Daily claim frequency.
+  - `rejection_reason` (TEXT): Details on rejection.
+  - `processed_at` / `created_at` / `updated_at` (TIMESTAMPTZ): Timestamps.
+
+- **`payouts`**: Disbursed monetary claims.
+  - `id` (UUID): Primary Key.
+  - `payout_number` (VARCHAR): E.g., PAY-001.
+  - `claim_id` / `worker_id` (UUID): Reference to worker and claim.
+  - `amount` (NUMERIC): Disbursed amount.
+  - `status` (VARCHAR): 'pending', 'processing', 'completed', 'failed'.
+  - `upi` (VARCHAR): Beneficiary identifier.
+  - `initiated_at` / `completed_at` (TIMESTAMPTZ): Timestamps.
+  - `failure_reason` (TEXT): Rejection logs.
+
+- **`system_config`**: Configuration thresholds for the trigger engine.
+  - `id` (UUID): Primary Key.
+  - `engine_active` (BOOLEAN): Engine operational status.
+  - `check_interval_minutes` (INT): Engine cycle period.
+  - `payout_delay_seconds` (INT): Payout delay limit.
+  - `zone_overrides` (JSONB): Specific zone overrides.
+  - `thresholds` (JSONB): Disruption parameters (Limits for rain/aqi).
+  - `updated_at` (TIMESTAMPTZ): Timestamps.
+
+- **`audit_logs`**: System modification records.
+  - `id` (UUID): Primary Key.
+  - `user_id` (UUID): Identifier.
+  - `user_type` (VARCHAR): 'worker', 'admin'.
+  - `action` (VARCHAR): Modification triggered.
+  - `field` (VARCHAR): Value customized.
+  - `old_value` / `new_value` (TEXT): Track changes.
+  - `ip_address` (VARCHAR): Origin metadata.
+  - `created_at` (TIMESTAMPTZ): Timestamp.
+
+#### Supporting Tables
+
+- **`cities`**: City definitions where GigShield operates.
+  - `id` (UUID): Primary Key.
+  - `name` (VARCHAR): E.g., Mumbai, Delhi, Bangalore. Unique.
+
+- **`zones`**: Localized risk zones within cities.
+  - `id` (UUID): Primary Key.
+  - `city_id` (UUID): Links to `cities`.
+  - `name` (VARCHAR): E.g., Bandra, Rohini, Whitefield.
+  - `risk_level` (VARCHAR): 'low','medium','high'. Defaults to 'low'.
+
+- **`plans`**: Available gig worker insurance policies.
+  - `id` (UUID): Primary Key.
+  - `name` (VARCHAR): 'basic', 'standard', 'premium'. Unique.
+  - `weekly_premium` (NUMERIC): Plan cost.
+  - `max_coverage` (NUMERIC): Coverage upper bracket.
+  - `coverage_config` (JSONB): Allowed payout circumstances (weather, outage parameters).
 
 ### Indexes
 
@@ -316,9 +411,36 @@ Check indexes:
 psql $DATABASE_URL -c "\di"
 ```
 
+## Recent Adds (BLACKBOXAI)
+
+**Policy Page Real Data Integration (2024)**
+
+**Backend Updates:**
+- `backend/src/services/policyService.js`: Fixed column mismatches:
+  - `generateQuote`: `base_premium, max_payout` → `weekly_premium AS base_premium, max_coverage AS max_payout`
+  - `listPlans`: Same column fix, ORDER BY weekly_premium
+  - `getWorkerPolicies`: `pl.max_payout AS max_coverage, pl.base_premium AS base_premium` → `pl.max_coverage, pl.weekly_premium AS base_premium`
+- APIs `/api/policy/plans`, `/api/policy/my` now return correct schema data (weekly_premium, max_coverage from `plans` table).
+
+**Frontend Updates:**
+- `frontend/src/lib/api.ts`: Added `workerApi.getPlans()`, `workerApi.getMyPolicies(token)`
+- `frontend/src/pages/Policy.tsx`: 
+  - Removed hardcoded data; now fetches real policies/plans.
+  - Dynamic active policy display (plan_name, policy_number, premium, max_coverage, dates, zone proxy).
+  - Coverage table parsed from `coverage_snapshot` or `coverage_config`.
+  - Policy history from `/api/policy/my` (non-active policies).
+  - Loading spinner, error toast + retry, empty state for no policies.
+  - Auto-renew switch (synced from API).
+
+**Verification:**
+- Backend restart: `cd backend && npm run dev`
+- Frontend dev: `cd frontend && npm run dev`
+- Test: `/policy` shows real data; APIs return `weekly_premium`, `max_coverage`.
+
 ## Next Steps
 
 - Add more seed data (sample workers, policies, claims)
 - Implement API endpoints that use this data layer
 - Add more Redis caching for frequently accessed data
 - Consider adding connection pooling for Redis
+
