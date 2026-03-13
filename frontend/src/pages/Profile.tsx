@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,12 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 
 const Profile = () => {
   const { toast } = useToast();
-  const [name, setName] = useState("Ramesh Kumar");
+  const { worker } = useWorkerAuthStore();
+  
+  const [name, setName] = useState(worker?.name || "Ramesh Kumar");
+  const [phone, setPhone] = useState(worker?.phone || "");
   const [zone, setZone] = useState("Bandra");
   const [earnings, setEarnings] = useState("5000");
+
   const [sms, setSms] = useState(true);
   const [push, setPush] = useState(true);
   const [whatsapp, setWhatsapp] = useState(false);
@@ -24,21 +28,22 @@ const Profile = () => {
   const handleSave = () => {
     toast({ title: "Profile updated", description: "Your changes have been saved." });
   };
+  
+  const initials = name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "RK";
 
   return (
-    <WorkerLayout>
       <div className="max-w-2xl">
         <PageHeader title="Profile" description="Manage your account settings" />
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Avatar className="h-16 w-16">
-            <AvatarFallback className="text-xl bg-primary text-primary-foreground font-display">RK</AvatarFallback>
+            <AvatarFallback className="text-xl bg-primary text-primary-foreground font-display">{initials}</AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-xl font-bold font-display">Ramesh Kumar</h2>
+            <h2 className="text-xl font-bold font-display">{name}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary">Swiggy</Badge>
+              <Badge variant="secondary">Worker</Badge>
               <Badge variant="outline" className="bg-success/15 text-success border-success/30">KYC Verified</Badge>
             </div>
           </div>
@@ -50,6 +55,10 @@ const Profile = () => {
             <div className="space-y-2">
               <Label>Full Name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone Number</Label>
+              <Input value={phone} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label>Zone</Label>
@@ -108,7 +117,6 @@ const Profile = () => {
           </CardContent>
         </Card>
       </div>
-    </WorkerLayout>
   );
 };
 

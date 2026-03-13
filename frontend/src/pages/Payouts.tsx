@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +23,6 @@ const Payouts = () => {
   const [tempUpi, setTempUpi] = useState(upi);
 
   return (
-    <WorkerLayout>
       <div>
         <PageHeader title="Payouts" description="Track your payout history" />
 
@@ -121,7 +119,6 @@ const Payouts = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </WorkerLayout>
   );
 };
 

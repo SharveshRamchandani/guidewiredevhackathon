@@ -21,6 +21,34 @@ router.patch('/workers/:id/kyc',
   validate, ctrl.updateKyc
 );
 
+// ─── Scenario 4: Admin Action Events (Fraud Review + Flag) ───────────────────
+// POST /api/admin/workers/:id/flag          → Flag worker account
+router.post('/workers/:id/flag',
+  [param('id').notEmpty().withMessage('Worker ID required')],
+  validate, ctrl.flagWorker
+);
+
+// POST /api/admin/claims/:id/fraud-review/start    → Start fraud review
+router.post('/claims/:id/fraud-review/start',
+  [param('id').notEmpty().withMessage('Claim ID required'),
+   body('worker_id').notEmpty().withMessage('worker_id required')],
+  validate, ctrl.startFraudReview
+);
+
+// POST /api/admin/claims/:id/fraud-review/accept   → Accept after fraud review
+router.post('/claims/:id/fraud-review/accept',
+  [param('id').notEmpty().withMessage('Claim ID required'),
+   body('worker_id').notEmpty().withMessage('worker_id required')],
+  validate, ctrl.acceptFraudReview
+);
+
+// POST /api/admin/claims/:id/fraud-review/reject   → Reject after fraud review
+router.post('/claims/:id/fraud-review/reject',
+  [param('id').notEmpty().withMessage('Claim ID required'),
+   body('worker_id').notEmpty().withMessage('worker_id required')],
+  validate, ctrl.rejectFraudReview
+);
+
 // Policies
 router.get('/policies', ctrl.getPolicies);
 
@@ -49,3 +77,4 @@ router.get('/config', ctrl.getConfig);
 router.patch('/config', ctrl.updateConfig);
 
 module.exports = router;
+
