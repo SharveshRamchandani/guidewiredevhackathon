@@ -1,8 +1,8 @@
-const adminService = require('../services/adminService');
+const adminService  = require('../services/adminService');
 const claimsService = require('../services/claimsService');
-const authService = require('../services/authService');
+const authService   = require('../services/authService');
 
-const ok = (res, data, msg = 'Success', code = 200) =>
+const ok  = (res, data, msg = 'Success', code = 200) =>
   res.status(code).json({ success: true, message: msg, data });
 const err = (next, e) => next(e);
 
@@ -82,9 +82,61 @@ async function updateConfig(req, res, next) {
   catch (e) { err(next, e); }
 }
 
+// ─── Scenario 4: Admin Action Handlers (RBA Triggers) ────────────────────────
+
+/**
+ * POST /api/admin/workers/:id/flag
+ * Flag a worker account. Emits: account:flagged → notifies worker + admins.
+ */
+async function flagWorker(req, res, next) {
+  try {
+    const data = await adminService.flagWorkerAccount(req.params.id, req.admin?.id, req.body.reason);
+    ok(res, data, 'Worker account flagged.');
+  } catch (e) { err(next, e); }
+}
+
+/**
+ * POST /api/admin/claims/:id/fraud-review/start
+ * Initiate manual fraud review. Emits: fraud:review_started.
+ */
+async function startFraudReview(req, res, next) {
+  try {
+    await adminService.initiateFraudReview(req.params.id, req.body.worker_id, req.admin?.id);
+    ok(res, null, 'Fraud review initiated. Notifications sent.');
+  } catch (e) { err(next, e); }
+}
+
+/**
+ * POST /api/admin/claims/:id/fraud-review/accept
+ * Accept after fraud review. Emits: fraud:review_accepted.
+ */
+async function acceptFraudReview(req, res, next) {
+  try {
+    await adminService.completeFraudReviewAccepted(req.params.id, req.body.worker_id, req.admin?.id);
+    ok(res, null, 'Fraud review accepted. Notifications sent.');
+  } catch (e) { err(next, e); }
+}
+
+/**
+ * POST /api/admin/claims/:id/fraud-review/reject
+ * Reject after fraud review. Emits: fraud:review_rejected.
+ */
+async function rejectFraudReview(req, res, next) {
+  try {
+    await adminService.completeFraudReviewRejected(
+      req.params.id, req.body.worker_id, req.admin?.id,
+      req.body.penalty_credits || 0
+    );
+    ok(res, null, 'Fraud review rejected. Notifications sent.');
+  } catch (e) { err(next, e); }
+}
+
 module.exports = {
   login, logout, dashboard,
   getWorkers, updateKyc,
   getPolicies, getClaims, approveClaim, rejectClaim,
   getEvents, getAnalytics, getConfig, updateConfig,
+  // Scenario 4 RBA triggers
+  flagWorker, startFraudReview, acceptFraudReview, rejectFraudReview,
 };
+

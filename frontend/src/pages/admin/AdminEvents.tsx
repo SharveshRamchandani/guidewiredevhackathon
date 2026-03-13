@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AdminLayout } from "@/components/AdminLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +24,7 @@ const AdminEvents = () => {
   const [simTrigger, setSimTrigger] = useState([25]);
 
   return (
-    <AdminLayout>
+    <>
       <PageHeader title="Disruption Events" description="Monitor and simulate disruption events" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -81,7 +80,7 @@ const AdminEvents = () => {
           )}
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 };
 

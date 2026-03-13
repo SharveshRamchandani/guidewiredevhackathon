@@ -95,7 +95,7 @@ async function verifyWorkerOTP(phone, otp) {
  * No registrationCode — workers register directly with GigShield.
  */
 async function completeWorkerRegistration(registrationToken, data) {
-    const { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId } = data;
+    const { name, platform, city, zoneId, avgWeeklyEarning, aadhaarLast4, upiId, planId } = data;
 
     // 1. Verify registration token
     const decoded = jwtService.verifyToken(registrationToken);
@@ -135,9 +135,10 @@ async function completeWorkerRegistration(registrationToken, data) {
     const { rows: newWorkerRows } = await query(
         `INSERT INTO workers
            (phone, name, platform, city, zone_id, avg_weekly_earning,
-            aadhaar_hash, upi_id, is_phone_verified, is_kyc_verified, is_profile_complete,
+            aadhaar_hash, upi_id, plan_id,
+            is_phone_verified, is_kyc_verified, is_profile_complete,
             active, last_login, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, true, true, NOW(), NOW(), NOW())
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, true, true, true, NOW(), NOW(), NOW())
          RETURNING id, name, phone, platform, city`,
         [
             phone, name, platform, city,
@@ -145,6 +146,7 @@ async function completeWorkerRegistration(registrationToken, data) {
             avgWeeklyEarning || null,
             aadhaarHash,
             upiId,
+            planId || null,
         ]
     );
 

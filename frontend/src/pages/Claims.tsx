@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { WorkerLayout } from "@/components/WorkerLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -28,7 +27,6 @@ const Claims = () => {
   const filtered = tab === "all" ? claimsData : claimsData.filter((c) => c.status === tab);
 
   return (
-    <WorkerLayout>
       <div>
         <PageHeader title="Claims" description="Track your disruption claims and payouts" />
 
@@ -124,7 +122,6 @@ const Claims = () => {
           </SheetContent>
         </Sheet>
       </div>
-    </WorkerLayout>
   );
 };
 

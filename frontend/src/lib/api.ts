@@ -95,6 +95,7 @@ export const workerApi = {
         avgWeeklyEarning?: number;
         aadhaarLast4: string;
         upiId: string;
+        planId?: string;
     }) =>
         apiFetch<{ token: string; worker: { id: string; name: string; phone: string } }>(
             '/api/auth/register/complete',
@@ -104,6 +105,41 @@ export const workerApi = {
                 headers: { Authorization: `Bearer ${registrationToken}` },
             }
         ),
+};
+
+// ─── Mock Payment ─────────────────────────────────────────────────────────────
+
+export const paymentApi = {
+    /** Process a mock UPI payment for plan purchase during registration */
+    processPayment: (data: {
+        upi_id: string;
+        amount: number;
+        plan_id: string;
+        plan_name: string;
+    }) =>
+        apiFetch<{
+            success: boolean;
+            transaction_id: string;
+            status: string;
+            upi_id: string;
+            amount_paid: number;
+            plan_id: string;
+            plan_name: string;
+            paid_at: string;
+            message: string;
+        }>(
+            '/api/payment/process',
+            { method: 'POST', body: JSON.stringify(data) }
+        ),
+
+    /** Verify a previously processed transaction */
+    verifyPayment: (txnId: string) =>
+        apiFetch<{
+            success: boolean;
+            transaction_id: string;
+            status: string;
+            verified_at: string;
+        }>(`/api/payment/verify/${txnId}`),
 };
 
 // ─── Admin Auth ───────────────────────────────────────────────────────────────
