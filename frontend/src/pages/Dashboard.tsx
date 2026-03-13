@@ -7,8 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
-import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye } from "lucide-react";
+import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useWeather } from '@/hooks/useWeather';
+import { Skeleton } from "@/components/ui/skeleton";
 
 const recentClaims = [
   { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const },
@@ -17,6 +19,7 @@ const recentClaims = [
 ];
 
 const Dashboard = () => {
+  const { weather, loading, error } = useWeather();
   const daysRemaining = 5;
   const daysTotal = 7;
 
@@ -30,7 +33,9 @@ const Dashboard = () => {
           <AlertTitle className="flex items-center gap-2">
             Live Disruption Alert <Badge variant="outline" className="bg-destructive/20 text-destructive-foreground border-destructive/40">Heavy Rain</Badge>
           </AlertTitle>
-          <AlertDescription>Heavy rainfall detected in Bandra zone. If disruption continues, a claim will be auto-triggered.</AlertDescription>
+          <AlertDescription>
+            {error ? "Weather data unavailable." : `Heavy rainfall detected in ${weather?.city || 'your'} zone. If disruption continues, a claim will be auto-triggered.`}
+          </AlertDescription>
         </Alert>
 
         {/* Active Policy + Earnings */}
@@ -127,14 +132,42 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <Card>
             <CardHeader>
-              <CardTitle className="font-display text-lg">Live Weather — Bandra</CardTitle>
+              <CardTitle className="font-display text-lg">
+                {loading ? <Skeleton className="h-6 w-48" /> : `Live Weather — ${weather?.city || 'Detecting...'}`}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div><CloudRain className="h-8 w-8 mx-auto text-primary mb-1" /><p className="text-lg font-bold">28mm</p><p className="text-xs text-muted-foreground">Rainfall</p></div>
-                <div><Thermometer className="h-8 w-8 mx-auto text-chart-1 mb-1" /><p className="text-lg font-bold">32°C</p><p className="text-xs text-muted-foreground">Temperature</p></div>
-                <div><Wind className="h-8 w-8 mx-auto text-chart-2 mb-1" /><p className="text-lg font-bold">156</p><p className="text-xs text-muted-foreground">AQI</p><Badge variant="outline" className="text-xs mt-1">Moderate</Badge></div>
-              </div>
+              {loading ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : error ? (
+                <div className="text-center p-4 text-destructive">
+                  <p className="text-sm font-medium">Weather unavailable</p>
+                  <p className="text-xs">{error}</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <CloudRain className="h-8 w-8 mx-auto text-primary mb-1" />
+                    <p className="text-lg font-bold">{weather ? `${weather.rainfall}mm` : '—'}</p>
+                    <p className="text-xs text-muted-foreground">Rainfall</p>
+                  </div>
+                  <div>
+                    <Thermometer className="h-8 w-8 mx-auto text-chart-1 mb-1" />
+                    <p className="text-lg font-bold">{weather ? `${weather.temp.toFixed(1)}°C` : '—'}</p>
+                    <p className="text-xs text-muted-foreground">Temperature</p>
+                  </div>
+                  <div>
+                    <Wind className="h-8 w-8 mx-auto text-chart-2 mb-1" />
+                    <p className="text-lg font-bold">{weather ? Math.round(weather.aqi * 40) : '—'}</p>
+                    <p className="text-xs text-muted-foreground">AQI</p>
+                    <Badge variant="outline" className="text-xs mt-1">
+                      {weather?.aqiLabel || '—'}
+                    </Badge>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
