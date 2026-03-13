@@ -29,7 +29,6 @@ import RegisterUpi from "./pages/RegisterUpi";
 import RegisterPlan from "./pages/RegisterPlan";
 import Dashboard from "./pages/Dashboard";
 import Policy from "./pages/Policy";
-import Plans from "./pages/Plans";
 import Claims from "./pages/Claims";
 import Payouts from "./pages/Payouts";
 import Profile from "./pages/Profile";
