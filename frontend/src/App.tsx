@@ -26,12 +26,15 @@ import RegisterPhone from "./pages/RegisterPhone";
 import RegisterProfile from "./pages/RegisterProfile";
 import RegisterKyc from "./pages/RegisterKyc";
 import RegisterUpi from "./pages/RegisterUpi";
+import RegisterPlan from "./pages/RegisterPlan";
 import Dashboard from "./pages/Dashboard";
 import Policy from "./pages/Policy";
 import Plans from "./pages/Plans";
 import Claims from "./pages/Claims";
 import Payouts from "./pages/Payouts";
 import Profile from "./pages/Profile";
+import Plans from "./pages/Plans";
+import NotificationsPage from "./pages/NotificationsPage";
 
 // Admin pages
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -85,6 +88,7 @@ const App = () => (
             <Route path="/register/profile" element={<RegisterProfile />} />
             <Route path="/register/kyc" element={<RegisterKyc />} />
             <Route path="/register/upi" element={<RegisterUpi />} />
+            <Route path="/register/plan" element={<RegisterPlan />} />
 
             {/* ─── Protected Worker Routes (layout stays mounted) ─── */}
             <Route element={<RequireWorkerAuth><WorkerLayout /></RequireWorkerAuth>}>
@@ -94,6 +98,7 @@ const App = () => (
               <Route path="/payouts" element={<Payouts />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/plans" element={<Plans />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
 
             {/* ─── Public Admin Routes ─── */}
@@ -119,6 +124,7 @@ const App = () => (
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/admin/fraud" element={<AdminFraud />} />
               <Route path="/admin/profile" element={<AdminProfile />} />
+              <Route path="/admin/notifications" element={<NotificationsPage />} />
 
               {/* ─── Super Admin-Only Routes ─── */}
               <Route path="/admin/staff" element={<RequireSuperAdmin><AdminStaff /></RequireSuperAdmin>} />

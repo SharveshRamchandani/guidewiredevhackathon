@@ -1,69 +1,19 @@
-// ============================================================
-// GigShield — Policy Service
-// Handles: quote, create, get, renew, cancel
-// ============================================================
-
+const mlClient  = require('../config/mlClient');
 const { query } = require('../config/db');
-const axios = require('axios');
+const eventBus  = require('../events/eventBus'); // RBA event bus
 
-const ML_BASE_URL = process.env.ML_BASE_URL || 'http://localhost:8000';
-
-// ─────────────────────────────────────────
-// PRICING ENGINE
-// ─────────────────────────────────────────
-
-/**
- * Calculate final premium for a worker + plan combination
- * Formula: (basePremium + zoneAdjustment - loyaltyDiscount) × riskMultiplier
- * Hard cap: never exceed 5% of worker's weekly income
- */
-function calculatePremium({ basePremium, zoneNumber, claimFreeWeeks, weeklyIncome, riskMultiplier = 1.0 }) {
-
-  // Zone adjustment (based on Excel model)
-  const zoneAdjustments = { 1: 0, 2: 0.20, 3: 0.50, 4: 0.85 };
-  const zoneAdj = basePremium * (zoneAdjustments[zoneNumber] || 0);
-
-  // Loyalty discount
-  let loyaltyDiscount = 0;
-  if (claimFreeWeeks >= 24) loyaltyDiscount = 20;
-  else if (claimFreeWeeks >= 12) loyaltyDiscount = 15;
-  else if (claimFreeWeeks >= 4) loyaltyDiscount = 10;
-
-  // Risk-adjusted premium
-  let finalPremium = (basePremium + zoneAdj - loyaltyDiscount) * riskMultiplier;
-
-  // Floor: never below 60% of base
-  finalPremium = Math.max(finalPremium, basePremium * 0.6);
-
-  // Affordability cap: max 5% of weekly income
-  if (weeklyIncome > 0) {
-    const affordabilityCap = weeklyIncome * 0.05;
-    finalPremium = Math.min(finalPremium, affordabilityCap);
-  }
-
-  return {
-    basePremium,
-    zoneAdjustment: Math.round(zoneAdj * 100) / 100,
-    loyaltyDiscount,
-    riskMultiplier,
-    finalPremium: Math.round(finalPremium * 100) / 100,
-    affordabilityPct: weeklyIncome > 0
-      ? Math.round((finalPremium / weeklyIncome) * 10000) / 100
-      : null
-  };
-}
-
-/**
- * Get co-payment % for a plan
- */
-function getCoPay(planName) {
-  const coPays = { nano: 0.25, basic: 0.20, standard: 0.10, premium: 0 };
-  return coPays[planName] ?? 0.20;
-}
-
-// ─────────────────────────────────────────
-// ML RISK SCORE
-// ─────────────────────────────────────────
+// ─── Claim type → payout ratio (matching actual schema types) ─────────────────
+const PAYOUT_RATIOS = {
+  'Heavy Rain':     0.50,
+  'Poor AQI':       0.30,
+  'Heatwave':       0.40,
+  'Platform Outage':0.60,
+  // Legacy keys for backwards compat
+  weather:          0.50,
+  aqi:              0.30,
+  strike:           0.40,
+  disruption:       0.35,
+};
 
 /**
  * Call ML service for risk score
@@ -286,44 +236,22 @@ async function createPolicy(workerId, planId) {
 
   const placeholders = insertVals.map((_, i) => `$${i + 1}`).join(', ');
   const { rows } = await query(
-    `INSERT INTO policies (${insertCols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
-    insertVals
+    `INSERT INTO policies
+       (policy_number, worker_id, plan_id, premium, max_coverage,
+        status, auto_renew, start_date, end_date, coverage_snapshot, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9, NOW(), NOW())
+     RETURNING *`,
+    [policyNumber, workerId, planId, quote.weekly_premium, quote.max_coverage,
+     autoRenew, start, end, coverageSnapshot ? JSON.stringify(coverageSnapshot) : null]
   );
 
-  const policy = rows[0];
+  // ── RBA: policy created / upgraded ────────────────────────────────────────
+  eventBus.emit('policy:upgraded', {
+    workerId,
+    planName: plans[0]?.coverage_config?.plan_name || policyNumber,
+  });
 
-  // 8. Return full response
-  return {
-    policy: {
-      ...policy,
-      plan_name: plan.name,
-      max_payout: plan.max_payout,
-      days_remaining: plan.coverage_days || 7
-    },
-    pricing,
-    message: `${plan.name.charAt(0).toUpperCase() + plan.name.slice(1)} plan activated successfully`
-  };
-}
-
-/**
- * GET WORKER POLICIES
- * Returns all policies for a worker
- */
-async function getWorkerPolicies(workerId) {
-  const { rows } = await query(`
-    SELECT
-      pol.*,
-      pl.name       AS plan_name,
-      pl.max_payout AS max_payout,
-      pl.coverage_config,
-      GREATEST(0, (pol.end_date::date - CURRENT_DATE)) AS days_remaining
-    FROM policies pol
-    JOIN plans pl ON pl.id = pol.plan_id
-    WHERE pol.worker_id = $1
-    ORDER BY pol.created_at DESC
-  `, [workerId]);
-
-  return rows;
+  return rows[0];
 }
 
 /**
@@ -406,6 +334,9 @@ async function renewPolicy(policyId, workerId) {
      RETURNING *`,
     [newStart, newEnd, quote.weekly_premium, policyId]
   );
+
+  // ── RBA: policy auto-renewed ─────────────────────────────────────────────
+  eventBus.emit('policy:renewed', { workerId });
 
   return rows[0];
 }

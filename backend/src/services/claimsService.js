@@ -1,7 +1,8 @@
-const mlClient = require('../config/mlClient');
-const { query } = require('../config/db');
+const mlClient   = require('../config/mlClient');
+const { query }  = require('../config/db');
 const { enqueueClaim, enqueuePayout, invalidateDashboard } = require('../config/redis');
 const { PAYOUT_RATIOS } = require('./policyService');
+const eventBus   = require('../events/eventBus'); // RBA event bus
 
 // ML decision thresholds
 const AUTO_APPROVE_THRESHOLD = 0.30;
@@ -95,11 +96,28 @@ async function initiateClaimAuto({ workerId, policyId, eventId, type, descriptio
 
   const claim = rows[0];
 
+  // ── RBA: notify worker that claim was submitted ───────────────────────────
+  eventBus.emit('claim:raised', {
+    workerId: workerId,
+    claimId:  claim.claim_number || claim.id,
+  });
+
   // Queue actions based on decision
   if (status === 'pending') {
     await enqueueClaim(claim.id);        // → fraud review queue
   } else if (status === 'approved') {
+    // ── RBA: auto-approved — also emit accepted notification ─────────────────
+    eventBus.emit('claim:accepted', {
+      workerId: workerId,
+      claimId:  claim.claim_number || claim.id,
+    });
     await triggerPayoutQueue(claim);     // → payout queue immediately
+  } else if (status === 'rejected') {
+    // ── RBA: auto-rejected by ML ─────────────────────────────────────────────
+    eventBus.emit('claim:rejected', {
+      workerId: workerId,
+      claimId:  claim.claim_number || claim.id,
+    });
   }
 
   await invalidateDashboard();
@@ -152,6 +170,13 @@ async function approveClaim(claimId, adminId) {
     const err = new Error('Claim not found or already processed.'); err.statusCode = 400; throw err;
   }
   const claim = rows[0];
+
+  // ── RBA: claim approved by admin ─────────────────────────────────────────
+  eventBus.emit('claim:accepted', {
+    workerId: claim.worker_id,
+    claimId:  claim.claim_number || claim.id,
+  });
+
   await triggerPayoutQueue(claim);
   await invalidateDashboard();
 
@@ -177,6 +202,14 @@ async function rejectClaim(claimId, reason, adminId) {
   if (!rows.length) {
     const err = new Error('Claim not found or already processed.'); err.statusCode = 400; throw err;
   }
+  const claim = rows[0];
+
+  // ── RBA: claim rejected by admin ─────────────────────────────────────────
+  eventBus.emit('claim:rejected', {
+    workerId: claim.worker_id,
+    claimId:  claim.claim_number || claim.id,
+  });
+
   await invalidateDashboard();
 
   if (adminId) {
@@ -186,7 +219,7 @@ async function rejectClaim(claimId, reason, adminId) {
       [adminId]
     );
   }
-  return rows[0];
+  return claim;
 }
 
 // ─── Internal Helpers ─────────────────────────────────────────────────────────
