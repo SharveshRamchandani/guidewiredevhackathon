@@ -114,7 +114,7 @@ const Plans = () => {
 
   return (
     <div>
-      <PageHeader title="Choose a Plan" description="Weekly income protection designed for gig workers in India" />
+      <PageHeader title="Choose a Plan" />
 
         {error && (
           <div className="mb-5 p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">

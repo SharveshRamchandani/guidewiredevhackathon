@@ -11,6 +11,7 @@ import { NotificationsPanel } from "@/components/NotificationsPanel";
 import { MobileNavDock } from "@/components/MobileNavDock";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
 import { ExpandableChatDemo } from "@/components/ExpandableChatDemo";
+import { SharedTopbar } from "@/components/SharedTopbar";
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -100,38 +101,17 @@ export function WorkerLayout() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         {/* Top Nav */}
-        <header className="sticky top-0 z-50 flex h-14 items-center border-b bg-card px-4 lg:px-6 shrink-0">
-          {/* Brand - Mobile Only (Visible when md:hidden) */}
-          <Link to="/dashboard" className="flex md:hidden items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <span className="font-bold font-display">GigShield</span>
-          </Link>
-
-          <div className="flex-1" />
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="ghost" size="icon" className="relative" onClick={() => handleNotifOpen(true)}>
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] animate-in zoom-in">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </Badge>
-              )}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="ml-1">
-                  <Avatar className="h-8 w-8"><AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback></Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild><Link to="/profile">Profile</Link></DropdownMenuItem>
-                <DropdownMenuItem onClick={() => logout()} className="cursor-pointer">Logout</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
+        {/* Top Nav */}
+        <SharedTopbar
+          brandLink="/dashboard"
+          showSearch={false}
+          unreadCount={unreadCount}
+          onNotificationsOpen={() => handleNotifOpen(true)}
+          initials={initials}
+          userName={worker?.name}
+          profileLink="/profile"
+          onLogout={logout}
+        />
 
         {/* Main */}
         <main className="flex-1 p-6 pb-24 md:pb-6 overflow-x-hidden">
