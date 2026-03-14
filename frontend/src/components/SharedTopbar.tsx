@@ -51,8 +51,8 @@ export function SharedTopbar({
   
 }: SharedTopbarProps) {
   return (
-    <div className="sticky top-4 z-50 px-4 sm:px-6 shrink-0 mb-4 h-14 pointer-events-none transition-all duration-300">
-      <header className="flex h-full w-full items-center gap-4 border border-border/40 rounded-full bg-sidebar backdrop-blur-xl px-4 shadow-sm pointer-events-auto">
+    <div className="sticky top-0 z-50 px-4 sm:px-6 shrink-0 mb-4 h-18 pointer-events-none transition-all duration-300 bg-background pt-4 pb-2">
+      <header className="flex h-14 w-full items-center gap-4 border border-border/40 rounded-full bg-sidebar backdrop-blur-xl px-4 shadow-sm pointer-events-auto">
         {/* Brand - Mobile Only (Visible when md:hidden) */}
         <Link to={brandLink} className="flex md:hidden items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
