@@ -11,17 +11,35 @@ import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye, 
 import { Link } from "react-router-dom";
 import { useWeather } from '@/hooks/useWeather';
 import { Skeleton } from "@/components/ui/skeleton";
-
-const recentClaims = [
-  { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const },
-  { id: "CLM-002", date: "25 Feb 2026", type: "Poor AQI", amount: "₹320", status: "pending" as const },
-  { id: "CLM-003", date: "20 Feb 2026", type: "Platform Outage", amount: "₹280", status: "rejected" as const },
-];
+import { useEffect, useState } from "react";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { claimsApi } from "@/lib/api";
 
 const Dashboard = () => {
   const { weather, loading, error } = useWeather();
   const daysRemaining = 5;
   const daysTotal = 7;
+  const { token } = useWorkerAuthStore();
+  const [claims, setClaims] = useState<any[]>([]);
+  const [claimsLoading, setClaimsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClaims = async () => {
+      try {
+        if (!token) {
+          setClaimsLoading(false);
+          return;
+        }
+        const res = await claimsApi.getMyClaims(token);
+        setClaims(res.data || []);
+      } catch (err) {
+        console.error("Failed to fetch claims", err);
+      } finally {
+        setClaimsLoading(false);
+      }
+    };
+    fetchClaims();
+  }, [token]);
 
   return (
       <div>
@@ -114,15 +132,29 @@ const Dashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentClaims.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.id}</TableCell>
-                    <TableCell>{c.date}</TableCell>
-                    <TableCell>{c.type}</TableCell>
-                    <TableCell>{c.amount}</TableCell>
-                    <TableCell><StatusBadge status={c.status} /></TableCell>
+                {claimsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : claims.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                      No recent claims
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  claims.slice(0, 3).map((c: any) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">{c.claim_number || c.id.slice(0, 8)}</TableCell>
+                      <TableCell>{new Date(c.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</TableCell>
+                      <TableCell>{c.type || c.event_type}</TableCell>
+                      <TableCell>₹{c.amount}</TableCell>
+                      <TableCell><StatusBadge status={c.status} /></TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>

@@ -437,10 +437,26 @@ psql $DATABASE_URL -c "\di"
 - Frontend dev: `cd frontend && npm run dev`
 - Test: `/policy` shows real data; APIs return `weekly_premium`, `max_coverage`.
 
+## Recent Adds (Antigravity Claims Fixes)
+
+**Claims Page Real Data Integration & Schema Alignment (2026)**
+
+**Database Schema Fixes:**
+- **`policies` table**: 
+  - Added missing `policy_number` (VARCHAR 50) column. This field is required by `policyService.js` to store the human-readable ID (e.g., POL-2026-1234). 
+  - Retroactively updated existing active policies in the database to have uniquely generated `policy_number`s.
+
+- **`claims` table**: 
+  - Identified schema drift. The backend insertion logic (e.g., node scripts) was attempting to insert into `claim_number` and `gps_match` columns, which did not physically exist in the current local instance.
+  - Resolved seeding operations by bypassing non-existent schema columns and directly inserting vital UI data (`worker_id`, `policy_id`, `type`, `amount`, `status`, `fraud_score`) mapped back to local `id` usage on the frontend.
+
+**Backend & Frontend Claims Alignment:**
+- `claimsRoutes.js`: Overhauled the `/seed` endpoint to dynamically generate mock claims matching a user's exact active policy `coverage_config` (e.g., ensuring Basic users only see "Heavy Rain" events).
+- `Claims.tsx` & `Dashboard.tsx`: Replaced hardcoded dummy arrays (`claimsData`, `recentClaims`). Handwired UI components to fetch real database claims via `claimsApi.getMyClaims`.
+
 ## Next Steps
 
 - Add more seed data (sample workers, policies, claims)
 - Implement API endpoints that use this data layer
 - Add more Redis caching for frequently accessed data
 - Consider adding connection pooling for Redis
-

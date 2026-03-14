@@ -113,6 +113,12 @@ export const workerApi = {
         apiFetch<{ success: boolean; data: Array<any> }>('/api/policy/my', {}, token),
 };
 
+// ─── Claims API ───────────────────────────────────────────────────────────────
+
+export const claimsApi = {
+    getMyClaims: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<any> }>('/api/claims/my', {}, token),
+};
 
 
 // ─── Mock Payment ─────────────────────────────────────────────────────────────

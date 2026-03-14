@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { claimsApi } from "@/lib/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,20 +13,34 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, FileX } from "lucide-react";
-
-const claimsData = [
-  { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const, fraudScore: 12, zone: "Bandra" },
-  { id: "CLM-002", date: "25 Feb 2026", type: "Poor AQI", amount: "₹320", status: "pending" as const, fraudScore: 8, zone: "Bandra" },
-  { id: "CLM-003", date: "20 Feb 2026", type: "Platform Outage", amount: "₹280", status: "rejected" as const, fraudScore: 65, zone: "Bandra" },
-  { id: "CLM-004", date: "15 Feb 2026", type: "Heatwave", amount: "₹400", status: "approved" as const, fraudScore: 5, zone: "Bandra" },
-];
+import { CalendarIcon, FileX, Loader2 } from "lucide-react";
 
 const Claims = () => {
+  const { token } = useWorkerAuthStore();
   const [tab, setTab] = useState("all");
-  const [selectedClaim, setSelectedClaim] = useState<typeof claimsData[0] | null>(null);
+  const [claims, setClaims] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedClaim, setSelectedClaim] = useState<any | null>(null);
 
-  const filtered = tab === "all" ? claimsData : claimsData.filter((c) => c.status === tab);
+  useEffect(() => {
+    const fetchClaims = async () => {
+      try {
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        const res = await claimsApi.getMyClaims(token);
+        setClaims(res.data || []);
+      } catch (err) {
+        console.error("Failed to fetch claims", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClaims();
+  }, [token]);
+
+  const filtered = tab === "all" ? claims : claims.filter((c) => c.status === tab);
 
   return (
       <div>
@@ -49,7 +65,11 @@ const Claims = () => {
         </div>
 
         {/* Claims */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState icon={<FileX className="h-12 w-12" />} title="No claims found" description="No claims match the selected filter." />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -57,17 +77,17 @@ const Claims = () => {
               <Card key={c.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">{c.id}</span>
+                    <span className="font-medium text-sm">{c.claim_number || c.id.slice(0, 8)}</span>
                     <StatusBadge status={c.status} />
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2 mb-3">
-                    <Badge variant="secondary">{c.type}</Badge>
-                    <span className="text-sm text-muted-foreground">{c.date}</span>
+                    <Badge variant="secondary">{c.type || c.event_type}</Badge>
+                    <span className="text-sm text-muted-foreground">{new Date(c.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold font-display">{c.amount}</span>
+                    <span className="text-lg font-bold font-display">₹{c.amount}</span>
                     <Button variant="ghost" size="sm" onClick={() => setSelectedClaim(c)}>View Details</Button>
                   </div>
                 </CardContent>
@@ -80,7 +100,7 @@ const Claims = () => {
         <Sheet open={!!selectedClaim} onOpenChange={() => setSelectedClaim(null)}>
           <SheetContent>
             <SheetHeader>
-              <SheetTitle className="font-display">{selectedClaim?.id}</SheetTitle>
+              <SheetTitle className="font-display">{selectedClaim?.claim_number || selectedClaim?.id?.slice(0, 8)}</SheetTitle>
               <SheetDescription>Claim details and fraud analysis</SheetDescription>
             </SheetHeader>
             {selectedClaim && (
@@ -92,30 +112,30 @@ const Claims = () => {
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Disruption Type</span>
-                  <Badge variant="secondary">{selectedClaim.type}</Badge>
+                  <Badge variant="secondary">{selectedClaim.type || selectedClaim.event_type}</Badge>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Date</span>
-                  <span className="text-sm">{selectedClaim.date}</span>
+                  <span className="text-sm">{new Date(selectedClaim.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Amount</span>
-                  <span className="text-sm font-semibold">{selectedClaim.amount}</span>
+                  <span className="text-sm font-semibold">₹{selectedClaim.amount}</span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Zone</span>
-                  <span className="text-sm">{selectedClaim.zone}</span>
+                  <span className="text-sm">{selectedClaim.zone_name || "Bandra"}</span>
                 </div>
                 <Separator />
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Fraud Score</span>
-                    <Badge variant="outline">{selectedClaim.fraudScore < 30 ? "Low" : selectedClaim.fraudScore < 60 ? "Medium" : "High"}</Badge>
+                    <Badge variant="outline">{(selectedClaim.fraud_score || 0) * 100 < 30 ? "Low" : (selectedClaim.fraud_score || 0) * 100 < 60 ? "Medium" : "High"}</Badge>
                   </div>
-                  <Progress value={selectedClaim.fraudScore} className="h-2" />
+                  <Progress value={Math.round((selectedClaim.fraud_score || 0) * 100)} className="h-2" />
                 </div>
               </div>
             )}
