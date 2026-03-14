@@ -30,26 +30,28 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
-      <nav className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold font-display">GigShield</span>
+      <div className="sticky top-0 z-50 px-4 sm:px-6 shrink-0 h-18 pointer-events-none transition-all duration-300 bg-background pt-4 pb-2">
+        <nav className="max-w-5xl mx-auto flex h-14 items-center gap-4 border border-border/40 rounded-full bg-sidebar backdrop-blur-xl px-4 shadow-md dark:shadow-primary/5 pointer-events-auto">
+          <div className="container flex h-full items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold font-display">GigShield</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Link to="/login"><Button variant="ghost">Login</Button></Link>
+              <Link to="/register/phone"><Button>Get Protected</Button></Link>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link to="/login"><Button variant="ghost">Login</Button></Link>
-            <Link to="/register/phone"><Button>Get Protected</Button></Link>
-          </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
 
       {/* Hero */}
-      <section className="container py-20 md:py-32 text-center">
+      <section className="container py-20 md:py-32 text-center ">
         <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm">
           <Zap className="h-3.5 w-3.5 mr-1.5" /> Now covering Mumbai, Delhi, Bangalore
         </Badge>
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold font-display tracking-tight max-w-4xl mx-auto leading-tight">
+        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold font-display max-w-4xl mx-auto">
           Income protection for
           <span className="text-primary"> India's gig workers</span>
         </h1>
@@ -63,11 +65,11 @@ const Landing = () => {
               Get Protected <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
-          <Link to="/login">
+          {/* <Link to="/login">
             <Button variant="outline" size="lg" className="text-base px-8">
               Login
             </Button>
-          </Link>
+          </Link> */}
         </div>
       </section>
 
@@ -163,7 +165,7 @@ const Landing = () => {
       {/* Footer */}
       <footer className="border-t">
         <div className="container py-8">
-          <Separator className="mb-8" />
+          {/* <Separator className="mb-8" /> */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />

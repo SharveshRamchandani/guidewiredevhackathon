@@ -31,6 +31,7 @@ import { sidebarGroups, platformGroup } from "@/config/adminNavConfig";
 import { AdminMobileNavDock } from "@/components/AdminMobileNavDock";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
 import { ExpandableChatDemo } from "@/components/ExpandableChatDemo";
+import { SharedTopbar } from "@/components/SharedTopbar";
 import { useEffect } from "react";
 export function AdminLayout() {
   const location = useLocation();
@@ -54,15 +55,16 @@ export function AdminLayout() {
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [search, setSearch] = useState("");
 
   // ── Fetch live unread count every 30s ────────────────────────────────────
   useEffect(() => {
     const fetchUnread = async () => {
       try {
         const adminRaw = localStorage.getItem('admin-auth-storage');
-        const token    = adminRaw ? JSON.parse(adminRaw)?.state?.token : null;
-        
-        let endpoint = showSuperAdmin 
+        const token = adminRaw ? JSON.parse(adminRaw)?.state?.token : null;
+
+        let endpoint = showSuperAdmin
           ? 'http://localhost:5000/api/notifications/superadmin/unread-count'
           : 'http://localhost:5000/api/notifications/admin/unread-count';
 
@@ -95,7 +97,7 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Sidebar - hidden on mobile, now full height */}
-      <aside className={`hidden md:flex flex-col border-r bg-card h-screen p-3 space-y-1 sticky top-0 z-40 shrink-0 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
+      <aside className={`hidden md:flex flex-col border border-border/40 bg-sidebar/70 backdrop-blur-xl h-[calc(100vh-2rem)] m-4 rounded-[2.5rem] p-2 space-y-1 sticky top-4 z-40 shrink-0 shadow-md dark:shadow-primary/5 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
         <div className="flex items-center gap-2 mb-6 px-2 pt-2 justify-between">
           <Link to="/admin/dashboard" className="flex items-center gap-2 overflow-hidden">
             <Shield className="h-6 w-6 text-primary shrink-0" />
@@ -123,13 +125,13 @@ export function AdminLayout() {
               {group.items.map((item) => (
                 <Link key={item.route} to={item.route}>
                   <Button
-                    variant={location.pathname === item.route ? "secondary" : "ghost"}
-                    className={`w-full gap-2 mb-1 border-l-2 border-transparent data-[active=true]:border-l-primary ${isCollapsed ? 'justify-center px-2' : 'justify-start'}`}
+                    variant="ghost"
+                    className={`w-full gap-2 mb-1 rounded-xl transition-all duration-200 group ${location.pathname === item.route ? 'bg-primary/10 text-primary shadow-sm font-medium' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'} ${isCollapsed ? 'justify-center px-2' : 'justify-start px-3'}`}
                     size="sm"
-                    data-active={location.pathname === item.route}
                     title={item.label}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" /> {!isCollapsed && <span>{item.label}</span>}
+                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} />
+                    {!isCollapsed && <span>{item.label}</span>}
                   </Button>
                 </Link>
               ))}
@@ -148,13 +150,13 @@ export function AdminLayout() {
               {platformGroup.items.map((item) => (
                 <Link key={item.route} to={item.route}>
                   <Button
-                    variant={location.pathname === item.route ? "secondary" : "ghost"}
-                    className={`w-full gap-2 mb-1 border-l-2 border-transparent data-[active=true]:border-l-primary ${isCollapsed ? 'justify-center px-2' : 'justify-start'}`}
+                    variant="ghost"
+                    className={`w-full gap-2 mb-1 rounded-xl transition-all duration-200 group ${location.pathname === item.route ? 'bg-primary/10 text-primary shadow-sm font-medium' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'} ${isCollapsed ? 'justify-center px-2' : 'justify-start px-3'}`}
                     size="sm"
-                    data-active={location.pathname === item.route}
                     title={item.label}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" /> {!isCollapsed && <span>{item.label}</span>}
+                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} />
+                    {!isCollapsed && <span>{item.label}</span>}
                   </Button>
                 </Link>
               ))}
@@ -165,112 +167,22 @@ export function AdminLayout() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         {/* Top Nav */}
-        <header className="sticky top-0 z-50 flex h-14 items-center border-b bg-background px-4 lg:px-6 shrink-0">
-          {/* Mobile hamburger menu */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0">
-              <SheetHeader className="border-b p-4">
-                <SheetTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
-                  <span className="font-bold font-display">GigShield</span>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
-                    {showSuperAdmin ? "Super Admin" : "Admin"}
-                  </span>
-                </SheetTitle>
-              </SheetHeader>
-              <nav className="flex flex-col gap-4 p-4 overflow-y-auto max-h-[calc(100vh-80px)]">
-                {sidebarGroups.map((group, groupIndex) => (
-                  <div key={groupIndex} className="space-y-1 mb-2">
-                    {group.label && (
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">
-                        {group.label}
-                      </p>
-                    )}
-                    {group.items.map((item) => (
-                      <Link key={item.route} to={item.route} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent ${location.pathname === item.route ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"}`}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    ))}
-                  </div>
-                ))}
-
-                {showSuperAdmin && (
-                  <div className="space-y-1 mt-4 border-t pt-4">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">{platformGroup.label}</p>
-                    {platformGroup.items.map(item => (
-                      <Link key={item.route} to={item.route} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent ${location.pathname === item.route ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"}`}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </nav>
-            </SheetContent>
-          </Sheet>
-
-          {/* Brand - Mobile Only (Visible when md:hidden) */}
-          <Link to="/admin/dashboard" className="flex md:hidden items-center gap-2 mr-6">
-            <Shield className="h-5 w-5 text-primary" />
-            <span className="font-bold font-display">GigShield</span>
-          </Link>
-
-          {/* Search Bar - Left/Center */}
-          <div className="flex-1 flex justify-start max-md:px-2">
-            <div className="relative w-full max-w-md hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search..."
-                className="w-full pl-9 pr-12 h-9 bg-muted/50 border-0"
-              />
-              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                <span className="text-xs">⌘</span>F
-              </kbd>
-            </div>
-          </div>
-
-          {/* Right Section */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            {/* Notifications */}
-            <Button variant="ghost" size="icon" className="h-9 w-9 relative" onClick={() => handleNotifOpen(true)}>
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <Badge className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center animate-in zoom-in">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </Badge>
-              )}
-              <span className="sr-only">Notifications</span>
-            </Button>
-
-            <ThemeToggle />
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="ml-1">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled className="text-xs text-muted-foreground">{name}</DropdownMenuItem>
-                {admin?.jobTitle && (
-                  <DropdownMenuItem disabled className="text-xs text-muted-foreground">{admin.jobTitle}</DropdownMenuItem>
-                )}
-                <DropdownMenuItem asChild><Link to="/admin/profile">Profile</Link></DropdownMenuItem>
-                <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive">Logout</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
+        {/* Top Nav */}
+        <SharedTopbar
+          brandLink="/admin/dashboard"
+          showSuperAdminBadge={showSuperAdmin}
+          showSearch={true}
+          searchValue={search}
+          onSearchChange={setSearch}
+          unreadCount={unreadCount}
+          notificationsLink="/admin/notifications"
+          onNotificationsOpen={() => handleNotifOpen(true)}
+          initials={initials}
+          userName={name}
+          userJobTitle={admin?.jobTitle}
+          profileLink="/admin/profile"
+          onLogout={logout}
+        />
 
         {/* Main */}
         <main className="flex-1 p-6 pb-24 md:pb-6 overflow-x-hidden">
