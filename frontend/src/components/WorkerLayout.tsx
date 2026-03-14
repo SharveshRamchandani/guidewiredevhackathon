@@ -19,9 +19,18 @@ const navItems = [
   { label: "Claims", path: "/claims", icon: AlertTriangle },
   { label: "Payouts", path: "/payouts", icon: Wallet },
   // { label: "Profile", path: "/profile", icon: User },
-  // { label: "Notifications", path: "/notifications", icon: Bell },
+  { label: "Notifications", path: "/notifications", icon: Bell },
 ];
 
+
+const mobileNavItems = [
+  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "Policy", path: "/policy", icon: FileText },
+  { label: "Claims", path: "/claims", icon: AlertTriangle },
+  { label: "Payouts", path: "/payouts", icon: Wallet },
+  // { label: "Profile", path: "/profile", icon: User },
+  // { label: "Notifications", path: "/notifications", icon: Bell },
+];
 export function WorkerLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -99,7 +108,7 @@ export function WorkerLayout() {
                   {!isCollapsed && <span>{item.label}</span>}
                 </Button>
               </Link>
-              {i === 0 && <Separator className="my-2" />}
+              {i === 0 }
             </div>
           ))}
         </div>
@@ -129,7 +138,7 @@ export function WorkerLayout() {
       </div>
 
       {/* Mobile Nav Dock */}
-      <MobileNavDock items={navItems} />
+      <MobileNavDock items={mobileNavItems} />
 
       <NotificationsPanel open={notificationsOpen} onOpenChange={handleNotifOpen} />
       <ExpandableChatDemo />
