@@ -18,7 +18,7 @@ const VALID_CLAIM_TYPES = ['Heavy Rain', 'Poor AQI', 'Heatwave', 'Platform Outag
 async function initiateClaimAuto({ workerId, policyId, eventId, type, description, gpsMatch }) {
   // Validate active policy
   const { rows: policies } = await query(
-    `SELECT p.*, pl.max_coverage, pl.coverage_config
+    `SELECT p.*, pl.max_payout, pl.coverage_config
      FROM policies p
      JOIN plans pl ON pl.id = p.plan_id
      WHERE p.id = $1 AND p.worker_id = $2 AND p.status = 'active'`,
@@ -67,7 +67,7 @@ async function initiateClaimAuto({ workerId, policyId, eventId, type, descriptio
   }
 
   const status = mapDecisionToStatus(decision);
-  const amount = calculatePayout(parseFloat(policy.max_coverage), claimType);
+  const amount = calculatePayout(parseFloat(policy.max_payout), claimType);
 
   // Generate claim number
   const claimNumber = `CLM-${String(Date.now()).slice(-6)}`;
@@ -270,8 +270,8 @@ function calculatePayout(maxCoverage, claimType) {
  */
 async function triggerPayoutQueue(claim) {
   try {
-    const workerResult = await query('SELECT upi FROM workers WHERE id = $1', [claim.worker_id]);
-    const upi = workerResult.rows[0]?.upi;
+    const workerResult = await query('SELECT upi_id FROM workers WHERE id = $1', [claim.worker_id]);
+    const upi = workerResult.rows[0]?.upi_id;
 
     if (!upi) {
       console.warn(`[Claims] Worker ${claim.worker_id} has no UPI — skipping payout`);
@@ -292,7 +292,7 @@ async function triggerPayoutQueue(claim) {
 
     const { rows } = await query(
       `INSERT INTO payouts
-         (payout_number, claim_id, worker_id, amount, status, upi, initiated_at)
+         (payout_number, claim_id, worker_id, amount, status, upi_id, initiated_at)
        VALUES ($1, $2, $3, $4, 'processing', $5, NOW())
        RETURNING id`,
       [payoutNumber, claim.id, claim.worker_id, claim.amount, upi]

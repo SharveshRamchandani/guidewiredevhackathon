@@ -69,7 +69,7 @@ async function listWorkers({ page = 1, limit = 20, platform, zone_id } = {}) {
 
   const { rows } = await query(
     `SELECT w.id, w.name, w.phone, w.platform, w.city,
-            w.is_kyc_verified, w.risk_level, w.risk_score,
+            w.is_kyc_verified, w.risk_level,
             w.upi_id, w.avg_weekly_earning, w.active,
             z.name AS zone_name, w.created_at
      FROM workers w
@@ -96,10 +96,10 @@ async function updateWorkerKyc(workerId, status, adminId) {
 
   const { rows } = await query(
     `UPDATE workers
-     SET kyc_status = $1, updated_at = NOW()
+     SET is_kyc_verified = $1, updated_at = NOW()
      WHERE id = $2
-     RETURNING id, name, phone, kyc_status`,
-    [status, workerId]
+     RETURNING id, name, phone, is_kyc_verified`,
+    [status === 'verified', workerId]
   );
   if (!rows.length) { const e = new Error('Worker not found.'); e.statusCode = 404; throw e; }
 

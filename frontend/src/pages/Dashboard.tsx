@@ -10,97 +10,94 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
 import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useWeather } from '@/hooks/useWeather';
+import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
-import { workerDataApi } from "@/lib/api";
+import { workerApi } from "@/lib/api";
+
+const recentClaims = [
+  { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const },
+  { id: "CLM-002", date: "25 Feb 2026", type: "Poor AQI", amount: "₹320", status: "pending" as const },
+  { id: "CLM-003", date: "20 Feb 2026", type: "Platform Outage", amount: "₹280", status: "rejected" as const },
+];
 
 const Dashboard = () => {
+  const { weather, loading, error } = useWeather();
   const { token, worker } = useWorkerAuthStore();
-  const [loading, setLoading] = useState(true);
-  const [activePolicy, setActivePolicy] = useState<Record<string, unknown> | null>(null);
-  const [recentClaims, setRecentClaims] = useState<Array<Record<string, unknown>>>([]);
-  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
-  const [stats, setStats] = useState({ totalClaims: 0, totalPayouts: "₹0", approvalRate: "0%" });
-
+  const [activePolicy, setActivePolicy] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  
   useEffect(() => {
     if (!token) return;
 
     const loadData = async () => {
-      setLoading(true);
       try {
-        const [policiesRes, claimsRes, profileRes, payoutsRes] = await Promise.all([
-          workerDataApi.getMyPolicies(token).catch(() => ({ success: false, data: [] })),
-          workerDataApi.getMyClaims(token).catch(() => ({ success: false, data: [] })),
-          workerDataApi.getProfile(token).catch(() => ({ success: false, data: null })),
-          workerDataApi.getMyPayouts(token).catch(() => ({ success: false, data: [] })),
+        const [profileRes, policiesRes, plansRes] = await Promise.all([
+          workerApi.getProfile(token),
+          workerApi.getMyPolicies(token),
+          workerApi.getPlans()
         ]);
-
-        // Active policy
+        
+        setProfile(profileRes.data);
         const policies = policiesRes.data || [];
-        const active = policies.find((p: Record<string, unknown>) => p.status === "active") || null;
+        let active = policies.find((p: any) => p.status === "active");
+        
+        // Fallback: cross verify plan from workers table with plans table
+        if (!active && profileRes.data?.plan_id) {
+            const plans = plansRes.data || [];
+            const subPlan = plans.find((pl: any) => pl.id === profileRes.data.plan_id);
+            if (subPlan) {
+                active = {
+                   id: 'virtual-active',
+                   policy_number: `AUTO-${String(profileRes.data.id).substring(0,6).toUpperCase() || 'NEW'}`,
+                   plan_id: subPlan.id,
+                   plan_name: subPlan.name,
+                   premium: (subPlan as any).base_premium || subPlan.weekly_premium,
+                   max_coverage: (subPlan as any).max_payout || subPlan.max_coverage,
+                   status: 'active',
+                   start_date: profileRes.data.created_at || new Date().toISOString(),
+                   end_date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
+                   coverage_snapshot: subPlan.coverage_config
+                };
+            }
+        }
+        
         setActivePolicy(active);
-
-        // Claims
-        const claims = claimsRes.data || [];
-        setRecentClaims(claims.slice(0, 5));
-
-        // Profile
-        if (profileRes.data) setProfile(profileRes.data);
-
-        // Stats
-        const totalClaims = claims.length;
-        const approved = claims.filter((c: Record<string, unknown>) => c.status === "approved").length;
-        const approvalRate = totalClaims > 0 ? ((approved / totalClaims) * 100).toFixed(1) + "%" : "N/A";
-        const payouts = payoutsRes.data || [];
-        const totalPaid = payouts
-          .filter((p: Record<string, unknown>) => p.status === "completed")
-          .reduce((sum: number, p: Record<string, unknown>) => sum + Number(p.amount || 0), 0);
-
-        setStats({
-          totalClaims,
-          totalPayouts: `₹${totalPaid.toLocaleString("en-IN")}`,
-          approvalRate,
-        });
       } catch (err) {
-        console.error("Dashboard load error:", err);
-      } finally {
-        setLoading(false);
+        console.error("Dashboard data load error:", err);
       }
     };
 
     loadData();
   }, [token]);
 
-  const formatDate = (iso: string) => {
-    if (!iso) return "";
-    return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  };
+  const stats = { totalClaims: 12, totalPayouts: "₹5,400", approvalRate: "92%" };
 
-  const getDaysRemaining = () => {
-    if (!activePolicy?.end_date) return { remaining: 0, total: 7 };
-    const end = new Date(activePolicy.end_date as string);
-    const start = new Date(activePolicy.start_date as string);
-    const now = new Date();
-    const total = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    const remaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-    return { remaining, total };
-  };
+  let daysRemaining = 5;
+  let daysTotal = 7;
 
-  if (loading) {
-    return (
-      <div>
-        <PageHeader title="Dashboard" description={`Welcome back${worker?.name ? ', ' + worker.name : ''}!`} />
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    );
+  if (activePolicy && activePolicy.start_date && activePolicy.end_date) {
+      const start = new Date(activePolicy.start_date);
+      const end = new Date(activePolicy.end_date);
+      const now = new Date();
+      daysTotal = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      daysRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
   }
-
-  const { remaining: daysRemaining, total: daysTotal } = getDaysRemaining();
 
   return (
       <div>
-        <PageHeader title="Dashboard" description={`Welcome back${profile?.name ? ', ' + profile.name : worker?.name ? ', ' + worker.name : ''}!`} />
+        <PageHeader title="Dashboard" description={`Welcome back, ${worker?.name?.split(' ')[0] || "Worker"}!`} />
+
+        {/* Disruption Alert */}
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle className="flex items-center gap-2">
+            Live Disruption Alert <Badge variant="outline" className="bg-destructive/20 text-destructive-foreground border-destructive/40">Heavy Rain</Badge>
+          </AlertTitle>
+          <AlertDescription>
+            {error ? "Weather data unavailable." : `Heavy rainfall detected in ${weather?.city || 'your'} zone. If disruption continues, a claim will be auto-triggered.`}
+          </AlertDescription>
+        </Alert>
 
         {/* Active Policy + Earnings */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -183,34 +180,74 @@ const Dashboard = () => {
             <CardTitle className="font-display text-lg">Recent Claims</CardTitle>
           </CardHeader>
           <CardContent>
-            {recentClaims.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No claims yet.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Claim ID</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Claim ID</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentClaims.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.id}</TableCell>
+                    <TableCell>{c.date}</TableCell>
+                    <TableCell>{c.type}</TableCell>
+                    <TableCell>{c.amount}</TableCell>
+                    <TableCell><StatusBadge status={c.status} /></TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentClaims.map((c) => (
-                    <TableRow key={c.id as string}>
-                      <TableCell className="font-medium">{(c.claim_number as string) || (c.id as string)?.slice(0, 8)}</TableCell>
-                      <TableCell>{formatDate(c.created_at as string)}</TableCell>
-                      <TableCell>{c.type as string}</TableCell>
-                      <TableCell>₹{Number(c.amount || 0).toLocaleString("en-IN")}</TableCell>
-                      <TableCell><StatusBadge status={c.status as "approved" | "pending" | "rejected"} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
+
+        {/* Weather Widget */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display text-lg">
+                {loading ? <Skeleton className="h-6 w-48" /> : `Live Weather — ${weather?.city || 'Detecting...'}`}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : error ? (
+                <div className="text-center p-4 text-destructive">
+                  <p className="text-sm font-medium">Weather unavailable</p>
+                  <p className="text-xs">{error}</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <CloudRain className="h-8 w-8 mx-auto text-primary mb-1" />
+                    <p className="text-lg font-bold">{weather ? `${weather.rainfall}mm` : '—'}</p>
+                    <p className="text-xs text-muted-foreground">Rainfall</p>
+                  </div>
+                  <div>
+                    <Thermometer className="h-8 w-8 mx-auto text-chart-1 mb-1" />
+                    <p className="text-lg font-bold">{weather ? `${weather.temp.toFixed(1)}°C` : '—'}</p>
+                    <p className="text-xs text-muted-foreground">Temperature</p>
+                  </div>
+                  <div>
+                    <Wind className="h-8 w-8 mx-auto text-chart-2 mb-1" />
+                    <p className="text-lg font-bold">{weather ? Math.round(weather.aqi * 40) : '—'}</p>
+                    <p className="text-xs text-muted-foreground">AQI</p>
+                    <Badge variant="outline" className="text-xs mt-1">
+                      {weather?.aqiLabel || '—'}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Renew Banner */}
         {activePolicy && daysRemaining <= 2 && (

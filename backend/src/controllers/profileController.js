@@ -19,7 +19,7 @@ const eventBus   = require('../events/eventBus');
  */
 async function updateProfile(req, res, next) {
   try {
-    const workerId = req.user.id;
+    const workerId = req.worker.id;
     const { name, platform, city, avg_weekly_earning } = req.body;
 
     // Build dynamic SET clause (only update provided fields)
@@ -65,7 +65,7 @@ async function updateProfile(req, res, next) {
  */
 async function updateBankDetails(req, res, next) {
   try {
-    const workerId = req.user.id;
+    const workerId = req.worker.id;
     const { upi }  = req.body;
 
     if (!upi) {
@@ -73,9 +73,9 @@ async function updateBankDetails(req, res, next) {
     }
 
     const { rows } = await query(
-      `UPDATE workers SET upi = $1, updated_at = NOW()
+      `UPDATE workers SET upi_id = $1, updated_at = NOW()
        WHERE id = $2
-       RETURNING id, name, upi`,
+       RETURNING id, name, upi_id`,
       [upi, workerId]
     );
 
@@ -96,29 +96,28 @@ async function updateBankDetails(req, res, next) {
 
 /**
  * PATCH /api/profile/contact
- * Update worker phone or email.
+ * Update worker phone.
  * Emits: profile:contact_updated
  */
 async function updateContactDetails(req, res, next) {
   try {
-    const workerId = req.user.id;
-    const { phone, email } = req.body;
+    const workerId = req.worker.id;
+    const { phone } = req.body;
 
     const fields = [];
     const values = [];
 
     if (phone !== undefined) { values.push(phone); fields.push(`phone = $${values.length}`); }
-    if (email !== undefined) { values.push(email); fields.push(`email = $${values.length}`); }
 
     if (!fields.length) {
-      return res.status(400).json({ success: false, error: 'phone or email is required.' });
+      return res.status(400).json({ success: false, error: 'phone is required.' });
     }
 
     values.push(workerId);
     const { rows } = await query(
       `UPDATE workers SET ${fields.join(', ')}, updated_at = NOW()
        WHERE id = $${values.length}
-       RETURNING id, name, phone, email`,
+       RETURNING id, name, phone`,
       values
     );
 
@@ -129,11 +128,12 @@ async function updateContactDetails(req, res, next) {
     // ── RBA: contact details changed ────────────────────────────────────────
     eventBus.emit('profile:contact_updated', { workerId: String(workerId) });
 
-    return res.json({ success: true, message: 'Your email or phone number has been updated.', data: rows[0] });
+    return res.json({ success: true, message: 'Your phone number has been updated.', data: rows[0] });
   } catch (err) {
     next(err);
   }
 }
+
 
 // ─── Get My Profile ───────────────────────────────────────────────────────────
 
@@ -145,9 +145,9 @@ async function getProfile(req, res, next) {
   try {
     const workerId = req.worker.id;
     const { rows } = await query(
-      `SELECT w.id, w.name, w.phone, w.email, w.platform, w.city,
-              w.upi, w.avg_weekly_earning, w.is_kyc_verified,
-              w.risk_level, w.risk_score, w.active, w.created_at,
+      `SELECT w.id, w.name, w.phone, w.platform, w.city,
+              w.upi_id, w.avg_weekly_earning, w.is_kyc_verified,
+              w.risk_level, w.active, w.created_at, w.plan_id,
               z.name AS zone_name
        FROM workers w
        LEFT JOIN zones z ON z.id = w.zone_id

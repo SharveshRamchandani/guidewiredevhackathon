@@ -1,18 +1,18 @@
-const mlClient  = require('../config/mlClient');
+const mlClient = require('../config/mlClient');
 const { query } = require('../config/db');
-const eventBus  = require('../events/eventBus'); // RBA event bus
+const eventBus = require('../events/eventBus'); // RBA event bus
 
 // ─── Claim type → payout ratio (matching actual schema types) ─────────────────
 const PAYOUT_RATIOS = {
-  'Heavy Rain':     0.50,
-  'Poor AQI':       0.30,
-  'Heatwave':       0.40,
-  'Platform Outage':0.60,
+  'Heavy Rain': 0.50,
+  'Poor AQI': 0.30,
+  'Heatwave': 0.40,
+  'Platform Outage': 0.60,
   // Legacy keys for backwards compat
-  weather:          0.50,
-  aqi:              0.30,
-  strike:           0.40,
-  disruption:       0.35,
+  weather: 0.50,
+  aqi: 0.30,
+  strike: 0.40,
+  disruption: 0.35,
 };
 
 /**
@@ -23,7 +23,7 @@ async function generateQuote({ workerId, planId }) {
   // Fetch worker + zone details
   const { rows: workers } = await query(
     `SELECT w.id, w.phone, w.platform, w.zone_id,
-            z.risk_level AS zone_risk_level,
+            z.risk_factor AS zone_risk_factor,
             (SELECT COUNT(*) FROM claims c
                JOIN policies p ON p.id = c.policy_id
                WHERE p.worker_id = w.id) AS past_claims_count
@@ -39,7 +39,7 @@ async function generateQuote({ workerId, planId }) {
 
   // Validate plan exists
   const { rows: plans } = await query(
-    'SELECT id, name, base_premium, max_payout, coverage_days, coverage_config FROM plans WHERE id = $1 AND is_active = true',
+    'SELECT id, name, base_premium, max_payout, coverage_config FROM plans WHERE id = $1',
     [planId]
   );
   if (!plans.length) {
@@ -48,22 +48,21 @@ async function generateQuote({ workerId, planId }) {
   const plan = plans[0];
 
   // Zone risk → numeric values for ML
-  const riskMap = { low: 0.2, medium: 0.5, high: 0.8 };
-  const zoneRisk = riskMap[w.zone_risk_level] || 0.3;
+  const zoneRisk = parseFloat(w.zone_risk_factor) || 0.3;
 
   let riskScore = 0.5;
   let riskLabel = 'medium';
 
   try {
     const mlPayload = {
-      worker_id:         `W_${workerId}`,
-      zone_id:           w.zone_id || 1,
-      platform:          w.platform || 'Swiggy',
-      months_active:     6,
-      avg_daily_hours:   8,
+      worker_id: `W_${workerId}`,
+      zone_id: w.zone_id || 1,
+      platform: w.platform || 'Swiggy',
+      months_active: 6,
+      avg_daily_hours: 8,
       past_claims_count: parseInt(w.past_claims_count, 10) || 0,
-      zone_flood_risk:   zoneRisk,
-      zone_heat_risk:    zoneRisk * 0.7,
+      zone_flood_risk: zoneRisk,
+      zone_heat_risk: zoneRisk * 0.7,
     };
     const { data: ml } = await mlClient.post('/ml/risk-score', mlPayload);
     riskScore = ml.risk_score ?? 0.5;
@@ -82,13 +81,13 @@ async function generateQuote({ workerId, planId }) {
   );
 
   return {
-    worker_id:      workerId,
-    plan_id:        plan.id,
-    plan_name:      plan.name,
-    risk_score:     riskScore,
-    risk_label:     riskLabel,
+    worker_id: workerId,
+    plan_id: plan.id,
+    plan_name: plan.name,
+    risk_score: riskScore,
+    risk_label: riskLabel,
     weekly_premium: scaledPremium,
-    max_coverage:   parseFloat(plan.max_payout),
+    max_coverage: parseFloat(plan.max_payout),
     valid_for_hours: 24,
   };
 }
@@ -100,7 +99,7 @@ async function createPolicy({ workerId, planId, startDate, autoRenew = true }) {
   const quote = await generateQuote({ workerId, planId });
 
   const start = startDate || new Date().toISOString().split('T')[0];
-  const end   = addDays(start, 30);
+  const end = addDays(start, 30);
 
   // Generate policy_number
   const policyNumber = `POL-${new Date().getFullYear()}-${String(Date.now()).slice(-4).padStart(4, '0')}`;
@@ -119,7 +118,7 @@ async function createPolicy({ workerId, planId, startDate, autoRenew = true }) {
      VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9, NOW(), NOW())
      RETURNING *`,
     [policyNumber, workerId, planId, quote.weekly_premium, quote.max_coverage,
-     autoRenew, start, end, coverageSnapshot ? JSON.stringify(coverageSnapshot) : null]
+      autoRenew, start, end, coverageSnapshot ? JSON.stringify(coverageSnapshot) : null]
   );
 
   // ── RBA: policy created / upgraded ────────────────────────────────────────
@@ -151,15 +150,59 @@ async function getPolicyById(policyId, workerId = null) {
 }
 
 async function getWorkerPolicies(workerId) {
-  const { rows } = await query(
-    `SELECT p.*, pl.name AS plan_name, pl.max_payout AS max_coverage, pl.base_premium AS base_premium
-     FROM policies p
-     JOIN plans pl ON pl.id = p.plan_id
-     WHERE p.worker_id = $1
-     ORDER BY p.created_at DESC`,
-    [workerId]
-  );
-  return rows;
+  try {
+    const { rows } = await query(
+      `SELECT p.*, pl.name AS plan_name, pl.max_payout, pl.base_premium, pl.coverage_config AS current_config
+       FROM policies p
+       JOIN plans pl ON pl.id = p.plan_id
+       WHERE p.worker_id = $1
+       ORDER BY p.created_at DESC`,
+      [workerId]
+    );
+    
+    // If no explicit policies exist, pull the plan_id from workers table and build an active policy representation
+    if (rows.length === 0) {
+      const { rows: workerRows } = await query(
+        `SELECT w.plan_id, w.created_at, pl.name AS plan_name, pl.max_payout, pl.base_premium, pl.coverage_config
+         FROM workers w
+         JOIN plans pl ON pl.id = w.plan_id
+         WHERE w.id = $1`,
+        [workerId]
+      );
+      
+      if (workerRows.length > 0 && workerRows[0].plan_id) {
+        // Build a virtual active policy
+        const start = workerRows[0].created_at ? new Date(workerRows[0].created_at).toISOString() : new Date().toISOString();
+        const endD = new Date(start);
+        endD.setDate(endD.getDate() + 30); // 30 day policy
+        const end = endD.toISOString();
+        
+        return [{
+           id: 'implicit-' + workerId,
+           policy_number: 'AUTO-' + String(workerId).slice(0, 6).toUpperCase(),
+           worker_id: workerId,
+           plan_id: workerRows[0].plan_id,
+           plan_name: workerRows[0].plan_name,
+           premium: workerRows[0].base_premium,
+           max_coverage: workerRows[0].max_payout,
+           status: 'active',
+           auto_renew: true,
+           start_date: start,
+           end_date: end,
+           coverage_snapshot: workerRows[0].coverage_config
+        }];
+      }
+    }
+    
+    // Supplement missing snapshots with current plan config
+    return rows.map(r => ({
+      ...r,
+      coverage_snapshot: r.coverage_snapshot || r.current_config
+    }));
+  } catch (err) {
+    console.error('[PolicyService] Error in getWorkerPolicies:', err.message);
+    throw err;
+  }
 }
 
 async function renewPolicy(policyId, workerId) {
@@ -169,8 +212,8 @@ async function renewPolicy(policyId, workerId) {
   }
 
   const newStart = addDays(policy.end_date, 1);
-  const newEnd   = addDays(newStart, 30);
-  const quote    = await generateQuote({ workerId, planId: policy.plan_id });
+  const newEnd = addDays(newStart, 30);
+  const quote = await generateQuote({ workerId, planId: policy.plan_id });
 
   const { rows } = await query(
     `UPDATE policies
@@ -191,7 +234,7 @@ async function renewPolicy(policyId, workerId) {
 
 async function listPlans() {
   const { rows } = await query(
-    'SELECT id, name, base_premium, max_payout, coverage_config FROM plans ORDER BY base_premium ASC'
+'SELECT id, name, base_premium, max_payout, coverage_config FROM plans ORDER BY base_premium ASC'
   );
   return rows;
 }
