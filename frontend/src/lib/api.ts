@@ -1,7 +1,4 @@
-/**
- * API Client — GigShield
- * Centralized fetch wrapper with error normalization.
- */
+
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -111,15 +108,84 @@ export const workerApi = {
 
     getMyPolicies: (token: string) =>
         apiFetch<{ success: boolean; data: Array<any> }>('/api/policy/my', {}, token),
+
+    getProfile: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>('/api/profile', {}, token),
+
+    getMyPayouts: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>('/api/payouts/my', {}, token),
 };
 
-// ─── Claims API ───────────────────────────────────────────────────────────────
+// ─── Claims ───────────────────────────────────────────────────────────────────
 
 export const claimsApi = {
     getMyClaims: (token: string) =>
         apiFetch<{ success: boolean; data: Array<any> }>('/api/claims/my', {}, token),
 };
 
+// ─── Admin Data APIs ──────────────────────────────────────────────────────────
+
+export const adminDataApi = {
+    getDashboard: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            '/api/admin/dashboard', {}, token
+        ),
+
+    getWorkers: (token: string, params?: Record<string, string>) => {
+        const qs = params
+            ? new URLSearchParams(
+                  Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+              ).toString()
+            : '';
+        return apiFetch<{ success: boolean; data: { workers: Array<Record<string, unknown>>; total: number } }>(
+            `/api/admin/workers${qs ? `?${qs}` : ''}`, {}, token
+        );
+    },
+
+    getClaims: (token: string, params?: Record<string, string>) => {
+        const qs = params
+            ? new URLSearchParams(
+                  Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+              ).toString()
+            : '';
+        return apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            `/api/admin/claims${qs ? `?${qs}` : ''}`, {}, token
+        );
+    },
+
+    getPolicies: (token: string, params?: Record<string, string>) => {
+        const qs = params
+            ? new URLSearchParams(
+                  Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+              ).toString()
+            : '';
+        return apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            `/api/admin/policies${qs ? `?${qs}` : ''}`, {}, token
+        );
+    },
+
+    getEvents: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            '/api/admin/events', {}, token
+        ),
+
+    getAnalytics: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            '/api/admin/analytics', {}, token
+        ),
+
+    approveClaim: (id: string, token: string) =>
+        apiFetch<{ success: boolean }>(
+            `/api/admin/claims/${id}/approve`, { method: 'POST' }, token
+        ),
+
+    rejectClaim: (id: string, reason: string, token: string) =>
+        apiFetch<{ success: boolean }>(
+            `/api/admin/claims/${id}/reject`,
+            { method: 'POST', body: JSON.stringify({ reason }) },
+            token
+        ),
+};
 
 // ─── Mock Payment ─────────────────────────────────────────────────────────────
 

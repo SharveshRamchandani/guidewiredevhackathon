@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,17 +11,53 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
-import { Zap } from "lucide-react";
+import { Zap, Loader2 } from "lucide-react";
+import { useAdminAuthStore } from "@/stores/adminAuthStore";
+import { adminDataApi } from "@/lib/api";
 
-const events = [
-  { id: "EVT-001", type: "Heavy Rain", zone: "Bandra", severity: "High", value: "45mm", verified: true, claims: 23, date: "28 Feb 2026" },
-  { id: "EVT-002", type: "Poor AQI", zone: "Rohini", severity: "Medium", value: "AQI 340", verified: true, claims: 15, date: "27 Feb 2026" },
-  { id: "EVT-003", type: "Platform Outage", zone: "All", severity: "High", value: "3.5 hrs", verified: false, claims: 42, date: "26 Feb 2026" },
-];
+interface EventData {
+  id: string;
+  event_number?: string;
+  type: string;
+  zone_name?: string;
+  city_name?: string;
+  severity?: string;
+  value?: string;
+  verified?: boolean;
+  claims_generated?: number;
+  triggered_at?: string;
+  source?: string;
+}
 
 const AdminEvents = () => {
-  const [selectedEvent, setSelectedEvent] = useState<typeof events[0] | null>(null);
+  const { token } = useAdminAuthStore();
+  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<EventData[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
   const [simTrigger, setSimTrigger] = useState([25]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const loadEvents = async () => {
+      setLoading(true);
+      try {
+        const res = await adminDataApi.getEvents(token);
+        setEvents((res.data || []) as unknown as EventData[]);
+      } catch (err) {
+        console.error("Admin events load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, [token]);
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
 
   return (
     <>
@@ -29,22 +65,47 @@ const AdminEvents = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2">
-          <Table>
-            <TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Type</TableHead><TableHead>Zone</TableHead><TableHead>Severity</TableHead><TableHead>Verified</TableHead><TableHead>Claims</TableHead><TableHead></TableHead></TableRow></TableHeader>
-            <TableBody>
-              {events.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell className="font-medium">{e.id}</TableCell>
-                  <TableCell><Badge variant="secondary">{e.type}</Badge></TableCell>
-                  <TableCell>{e.zone}</TableCell>
-                  <TableCell><StatusBadge status={e.severity === "High" ? "high" : "medium"} label={e.severity} /></TableCell>
-                  <TableCell><Switch checked={e.verified} /></TableCell>
-                  <TableCell>{e.claims}</TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => setSelectedEvent(e)}>View</Button></TableCell>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : events.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No disruption events found.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Zone</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Verified</TableHead>
+                  <TableHead>Claims</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {events.map((e) => (
+                  <TableRow key={e.id}>
+                    <TableCell className="font-medium">{e.event_number || e.id.slice(0, 8)}</TableCell>
+                    <TableCell><Badge variant="secondary">{e.type}</Badge></TableCell>
+                    <TableCell>{e.zone_name || "All"}</TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        status={e.severity === "critical" ? "high" : e.severity === "high" ? "high" : e.severity === "medium" ? "medium" : "low"}
+                        label={e.severity || "—"}
+                      />
+                    </TableCell>
+                    <TableCell><Switch checked={e.verified ?? false} /></TableCell>
+                    <TableCell>{e.claims_generated || 0}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(e.triggered_at)}</TableCell>
+                    <TableCell><Button variant="ghost" size="sm" onClick={() => setSelectedEvent(e)}>View</Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
 
         <Card>
@@ -68,14 +129,21 @@ const AdminEvents = () => {
 
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="font-display">{selectedEvent?.id} — {selectedEvent?.type}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display">{selectedEvent?.event_number || selectedEvent?.id?.slice(0, 8)} — {selectedEvent?.type}</DialogTitle></DialogHeader>
           {selectedEvent && (
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Zone</span><span>{selectedEvent.zone}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Value</span><span>{selectedEvent.value}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Severity</span><StatusBadge status={selectedEvent.severity === "High" ? "high" : "medium"} label={selectedEvent.severity} /></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Claims Generated</span><span>{selectedEvent.claims}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{selectedEvent.date}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Zone</span><span>{selectedEvent.zone_name || "All"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">City</span><span>{selectedEvent.city_name || "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Value</span><span>{selectedEvent.value || "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Severity</span>
+                <StatusBadge
+                  status={selectedEvent.severity === "critical" || selectedEvent.severity === "high" ? "high" : selectedEvent.severity === "medium" ? "medium" : "low"}
+                  label={selectedEvent.severity || "—"}
+                />
+              </div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Source</span><span className="capitalize">{selectedEvent.source || "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Claims Generated</span><span>{selectedEvent.claims_generated || 0}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{formatDate(selectedEvent.triggered_at)}</span></div>
             </div>
           )}
         </DialogContent>

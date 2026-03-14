@@ -21,11 +21,11 @@ async function registerWorker({ name, phone, password, platform, zone_id, city, 
 
   const { rows } = await query(
     `INSERT INTO workers
-       (name, phone, platform, zone_id, city, upi_id,
+       (name, phone, password_hash, platform, zone_id, city, upi_id,
         is_kyc_verified, risk_level, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, true, 'low', NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, true, 'low', NOW(), NOW())
      RETURNING id, name, phone, platform, zone_id, city, upi_id, is_kyc_verified, risk_level, created_at`,
-    [name, phone, platform, zone_id || null, city || null, upi_id || null]
+    [name, phone, password_hash, platform, zone_id || null, city || null, upi_id || null]
   );
 
   const worker = rows[0];
@@ -38,7 +38,7 @@ async function registerWorker({ name, phone, password, platform, zone_id, city, 
 
 async function loginWorker({ phone, password }) {
   const { rows } = await query(
-    `SELECT id, name, phone, platform, zone_id, city, upi_id, is_kyc_verified, risk_level
+    `SELECT id, name, phone, password_hash, platform, zone_id, city, upi_id, is_kyc_verified, risk_level
      FROM workers WHERE phone = $1`,
     [phone]
   );

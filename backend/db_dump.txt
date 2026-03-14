@@ -1,0 +1,35 @@
+Plans: [
+  {
+    "id": "163f9ab2-f3c9-49c9-b89d-2332a299cdf3",
+    "name": "standard"
+  },
+  {
+    "id": "1b690d27-70ec-40fa-8b7b-3281498a4909",
+    "name": "premium"
+  },
+  {
+    "id": "58e413bd-0ce1-46a6-8fb8-493510082447",
+    "name": "nano"
+  },
+  {
+    "id": "937e2721-ae2d-4869-a13b-abb1febeb66a",
+    "name": "basic"
+  }
+]
+Workers: [
+  {
+    "id": "a76c15da-8552-4b0e-9959-c59662df6545",
+    "name": "Patiala Peg",
+    "plan_id": "937e2721-ae2d-4869-a13b-abb1febeb66a"
+  },
+  {
+    "id": "88119518-02ca-44cd-a9c4-3a29f8d55c9b",
+    "name": "Gaandu Singh",
+    "plan_id": "163f9ab2-f3c9-49c9-b89d-2332a299cdf3"
+  },
+  {
+    "id": "cf003629-2498-4d45-9389-365361d99d79",
+    "name": "Human",
+    "plan_id": null
+  }
+]

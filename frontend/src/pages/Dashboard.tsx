@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,39 +12,82 @@ import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye, 
 import { Link } from "react-router-dom";
 import { useWeather } from '@/hooks/useWeather';
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect, useState } from "react";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
-import { claimsApi } from "@/lib/api";
+import { workerApi, claimsApi } from "@/lib/api";
 
 const Dashboard = () => {
   const { weather, loading, error } = useWeather();
-  const daysRemaining = 5;
-  const daysTotal = 7;
-  const { token } = useWorkerAuthStore();
+  const { token, worker } = useWorkerAuthStore();
+  const [activePolicy, setActivePolicy] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [claims, setClaims] = useState<any[]>([]);
   const [claimsLoading, setClaimsLoading] = useState(true);
-
+  
   useEffect(() => {
-    const fetchClaims = async () => {
+    if (!token) return;
+
+    const loadData = async () => {
       try {
-        if (!token) {
-          setClaimsLoading(false);
-          return;
+        setClaimsLoading(true);
+        const [profileRes, policiesRes, plansRes, claimsRes] = await Promise.all([
+          workerApi.getProfile(token),
+          workerApi.getMyPolicies(token),
+          workerApi.getPlans(),
+          claimsApi.getMyClaims(token)
+        ]);
+        
+        setProfile(profileRes.data);
+        setClaims(claimsRes.data || []);
+        const policies = policiesRes.data || [];
+        let active = policies.find((p: any) => p.status === "active");
+        
+        // Fallback: cross verify plan from workers table with plans table
+        if (!active && profileRes.data?.plan_id) {
+            const plans = plansRes.data || [];
+            const subPlan = plans.find((pl: any) => pl.id === profileRes.data.plan_id);
+            if (subPlan) {
+                active = {
+                   id: 'virtual-active',
+                   policy_number: `AUTO-${String(profileRes.data.id).substring(0,6).toUpperCase() || 'NEW'}`,
+                   plan_id: subPlan.id,
+                   plan_name: subPlan.name,
+                   premium: (subPlan as any).base_premium || subPlan.weekly_premium,
+                   max_coverage: (subPlan as any).max_payout || subPlan.max_coverage,
+                   status: 'active',
+                   start_date: profileRes.data.created_at || new Date().toISOString(),
+                   end_date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
+                   coverage_snapshot: subPlan.coverage_config
+                };
+            }
         }
-        const res = await claimsApi.getMyClaims(token);
-        setClaims(res.data || []);
+        
+        setActivePolicy(active);
       } catch (err) {
-        console.error("Failed to fetch claims", err);
+        console.error("Dashboard data load error:", err);
       } finally {
         setClaimsLoading(false);
       }
     };
-    fetchClaims();
+
+    loadData();
   }, [token]);
+
+  const stats = { totalClaims: 12, totalPayouts: "₹5,400", approvalRate: "92%" };
+
+  let daysRemaining = 5;
+  let daysTotal = 7;
+
+  if (activePolicy && activePolicy.start_date && activePolicy.end_date) {
+      const start = new Date(activePolicy.start_date);
+      const end = new Date(activePolicy.end_date);
+      const now = new Date();
+      daysTotal = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      daysRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+  }
 
   return (
       <div>
-        <PageHeader title="Dashboard" description="Welcome back, Ramesh!" />
+        <PageHeader title="Dashboard" description={`Welcome back, ${worker?.name?.split(' ')[0] || "Worker"}!`} />
 
         {/* Disruption Alert */}
         <Alert variant="destructive" className="mb-6">
@@ -58,42 +102,58 @@ const Dashboard = () => {
 
         {/* Active Policy + Earnings */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card className="md:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="font-display text-lg flex items-center gap-2">
-                <Shield className="h-5 w-5 text-primary" /> Active Policy
-              </CardTitle>
-              <StatusBadge status="active" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-muted-foreground">Policy ID</span><p className="font-medium">POL-2026-0847</p></div>
-                <div><span className="text-muted-foreground">Plan</span><p className="font-medium">Standard Weekly</p></div>
-                <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹35/week</p></div>
-                <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹2,000/week</p></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">Days Remaining</span>
-                  <span className="font-medium">{daysRemaining}/{daysTotal}</span>
+          {activePolicy ? (
+            <Card className="md:col-span-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="font-display text-lg flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-primary" /> Active Policy
+                </CardTitle>
+                <StatusBadge status="active" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><span className="text-muted-foreground">Policy ID</span><p className="font-medium">{(activePolicy.policy_number as string) || "—"}</p></div>
+                  <div><span className="text-muted-foreground">Plan</span><p className="font-medium capitalize">{(activePolicy.plan_name as string) || "—"}</p></div>
+                  <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹{Number(activePolicy.premium || 0).toLocaleString("en-IN")}/week</p></div>
+                  <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹{Number(activePolicy.max_coverage || 0).toLocaleString("en-IN")}/week</p></div>
                 </div>
-                <Progress value={(daysRemaining / daysTotal) * 100} />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Link to="/policy"><Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1" /> View Policy Details</Button></Link>
-            </CardFooter>
-          </Card>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Days Remaining</span>
+                    <span className="font-medium">{daysRemaining}/{daysTotal}</span>
+                  </div>
+                  <Progress value={daysTotal > 0 ? (daysRemaining / daysTotal) * 100 : 0} />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Link to="/policy"><Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1" /> View Policy Details</Button></Link>
+              </CardFooter>
+            </Card>
+          ) : (
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="font-display text-lg flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-muted-foreground" /> No Active Policy
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">You don't have an active policy. Get protected now!</p>
+                <Link to="/plans"><Button>Browse Plans</Button></Link>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="font-display text-lg flex items-center gap-2">
-                <IndianRupee className="h-5 w-5 text-primary" /> Weekly Protected
+                <IndianRupee className="h-5 w-5 text-primary" /> Weekly Earnings
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold font-display text-primary">₹4,850</p>
-              <p className="text-sm text-muted-foreground mt-1">of ₹5,000 avg earnings</p>
+              <p className="text-4xl font-bold font-display text-primary">
+                ₹{Number(profile?.avg_weekly_earning || profile?.weekly_earnings || 0).toLocaleString("en-IN")}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">avg weekly earnings</p>
             </CardContent>
           </Card>
         </div>
@@ -101,9 +161,9 @@ const Dashboard = () => {
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {[
-            { label: "Total Claims", value: "7", sub: "this month" },
-            { label: "Total Payouts", value: "₹2,140", sub: "this month" },
-            { label: "Approval Rate", value: "85.7%", sub: "lifetime" },
+            { label: "Total Claims", value: String(stats.totalClaims), sub: "all time" },
+            { label: "Total Payouts", value: stats.totalPayouts, sub: "completed" },
+            { label: "Approval Rate", value: stats.approvalRate, sub: "lifetime" },
           ].map((s, i) => (
             <Card key={i}>
               <CardContent className="pt-6 text-center">
@@ -202,17 +262,19 @@ const Dashboard = () => {
               )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* Renew Banner */}
-          <Alert className="border-primary/30 bg-primary/5">
+        {/* Renew Banner */}
+        {activePolicy && daysRemaining <= 2 && (
+          <Alert className="border-primary/30 bg-primary/5 mb-6">
             <Shield className="h-4 w-4 text-primary" />
             <AlertTitle>Policy Renewal</AlertTitle>
             <AlertDescription className="space-y-2">
-              <p>Your policy expires in 2 days. Renew now to stay protected.</p>
+              <p>Your policy expires in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}. Renew now to stay protected.</p>
               <Button size="sm">Renew Now</Button>
             </AlertDescription>
           </Alert>
-        </div>
+        )}
       </div>
   );
 };

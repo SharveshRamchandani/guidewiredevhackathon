@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, List
 
 class RiskScoreInput(BaseModel):
     worker_id: str
@@ -16,3 +16,4 @@ class RiskScoreOutput(BaseModel):
     risk_label: Literal["low", "medium", "high"]
     suggested_premium: float
     coverage_recommended: int
+    top_risk_factors: List[str]       # Top 3 features by importance from Random Forest

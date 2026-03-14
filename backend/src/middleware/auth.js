@@ -50,7 +50,7 @@ async function authenticate(req, res, next) {
       await setSession(worker.id, worker, 'worker');
     }
 
-    req.user  = worker;
+    req.user = worker;
     req.token = token;
     next();
   } catch (err) {
@@ -99,7 +99,7 @@ async function authenticateAdmin(req, res, next) {
       await setSession(admin.id, admin, 'admin');
     }
 
-    req.user  = admin;
+    req.user = admin;
     req.token = token;
     next();
   } catch (err) {

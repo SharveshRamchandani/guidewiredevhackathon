@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
 import { MobileNavDock } from "@/components/MobileNavDock";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { ExpandableChatDemo } from "@/components/ExpandableChatDemo";
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -142,6 +143,7 @@ export function WorkerLayout() {
       <MobileNavDock items={navItems} />
 
       <NotificationsPanel open={notificationsOpen} onOpenChange={handleNotifOpen} />
+      <ExpandableChatDemo />
     </div>
   );
 }
