@@ -21,7 +21,8 @@ export interface SharedTopbarProps {
   
   // Notifications
   unreadCount: number;
-  onNotificationsOpen: () => void;
+  notificationsLink: string;
+  onNotificationsOpen?: () => void;
   
   // User Profile
   initials: string;
@@ -40,6 +41,7 @@ export function SharedTopbar({
   searchValue,
   onSearchChange,
   unreadCount,
+  notificationsLink,
   onNotificationsOpen,
   initials,
   userName,
@@ -50,7 +52,7 @@ export function SharedTopbar({
 }: SharedTopbarProps) {
   return (
     <div className="sticky top-4 z-50 px-4 sm:px-6 shrink-0 mb-4 h-14 pointer-events-none transition-all duration-300">
-      <header className="flex h-full w-full items-center gap-4 border border-border/40 rounded-full bg-background/70 backdrop-blur-xl px-4 shadow-sm pointer-events-auto">
+      <header className="flex h-full w-full items-center gap-4 border border-border/40 rounded-full bg-sidebar backdrop-blur-xl px-4 shadow-sm pointer-events-auto">
         {/* Brand - Mobile Only (Visible when md:hidden) */}
         <Link to={brandLink} className="flex md:hidden items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
@@ -84,15 +86,17 @@ export function SharedTopbar({
         {/* Right Section */}
         <div className="flex items-center gap-1 sm:gap-2 ml-auto">
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="h-9 w-9 relative rounded-full hover:bg-muted/50" onClick={onNotificationsOpen}>
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <Badge className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center animate-in zoom-in border-background border-2">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </Badge>
-            )}
-            <span className="sr-only">Notifications</span>
-          </Button>
+          <Link to={notificationsLink}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 relative rounded-full hover:bg-muted/50">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <Badge className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center animate-in zoom-in border-background border-2">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Badge>
+              )}
+              <span className="sr-only">Notifications</span>
+            </Button>
+          </Link>
 
           <ThemeToggle />
 
