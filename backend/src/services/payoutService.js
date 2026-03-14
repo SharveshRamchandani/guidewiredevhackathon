@@ -49,14 +49,12 @@ async function initiatePayout({ claimId, workerId }) {
   }
 
   const rz = simulateRazorpay(claim.amount, claim.upi_id);
-  const payoutNumber = `PAY-${String(Date.now()).slice(-6)}`;
-
   const { rows } = await query(
     `INSERT INTO payouts
-       (payout_number, claim_id, worker_id, amount, status, upi_id, initiated_at)
-     VALUES ($1, $2, $3, $4, 'processing', $5, NOW())
+       (claim_id, worker_id, amount, status, upi_id, initiated_at)
+     VALUES ($1, $2, $3, 'processing', $4, NOW())
      RETURNING *`,
-    [payoutNumber, claimId, workerId, claim.amount, claim.upi_id]
+    [claimId, workerId, claim.amount, claim.upi_id]
   );
 
   const payout = rows[0];
@@ -130,9 +128,21 @@ async function processPayoutQueue() {
 
 async function getPayoutsByWorker(workerId) {
   const { rows } = await query(
-    `SELECT p.*, c.type AS claim_type, c.amount AS claim_amount
+    `SELECT p.*,
+            p.upi_id AS upi,
+            c.type AS claim_type,
+            c.amount AS claim_amount,
+            c.status AS claim_status,
+            c.created_at AS claim_created_at,
+            po.id AS policy_id,
+            pl.id AS plan_id,
+            pl.name AS plan_name,
+            w.name AS worker_name
      FROM payouts p
      JOIN claims c ON c.id = p.claim_id
+     LEFT JOIN policies po ON po.id = c.policy_id
+     LEFT JOIN plans pl ON pl.id = po.plan_id
+     LEFT JOIN workers w ON w.id = p.worker_id
      WHERE p.worker_id = $1
      ORDER BY p.initiated_at DESC`,
     [workerId]

@@ -454,6 +454,41 @@ psql $DATABASE_URL -c "\di"
 - `claimsRoutes.js`: Overhauled the `/seed` endpoint to dynamically generate mock claims matching a user's exact active policy `coverage_config` (e.g., ensuring Basic users only see "Heavy Rain" events).
 - `Claims.tsx` & `Dashboard.tsx`: Replaced hardcoded dummy arrays (`claimsData`, `recentClaims`). Handwired UI components to fetch real database claims via `claimsApi.getMyClaims`.
 
+## Recent Adds (Antigravity Payouts Update)
+
+**Payouts Page Real Data Integration & Seed Data (2026)**
+
+**What changed in code:**
+- `backend/src/services/payoutService.js`:
+  - Removed writes to `payout_number` during payout creation because the live local `payouts` table does not currently have that column.
+  - Expanded `getPayoutsByWorker()` to return joined payout context from `claims`, `policies`, `plans`, and `workers`, including `claim_type`, `claim_status`, `plan_name`, and `upi`.
+- `frontend/src/pages/Payouts.tsx`:
+  - Replaced the basic payout table rendering with DB-backed fields from `/api/payouts/my`.
+  - Added plan and claim columns to the `/payouts` page.
+  - Updated the receipt modal to show plan, claim type, amount, status, and UPI from the API response.
+  - Read UPI from the real profile payload using `upi_id`.
+- `backend/scripts/seedMockPayouts.js`:
+  - Added an idempotent seed script for payout demo data.
+  - Script prefers `ANTIGRAVITY_DB_URL` when present.
+  - Ensures required active policies exist, inserts approved mock claims, then inserts payout rows tied to real workers and their actual plan relationships.
+
+**What changed in the database:**
+- No schema migration was added for this payout update.
+- Seeded payout-related data into the existing local PostgreSQL database:
+  - Inserted mock payout rows for real workers already present in `workers`.
+  - Inserted supporting approved claims where needed.
+  - Inserted or reused active policies where needed so payout rows map back to real plans.
+- Seeded payout scenarios currently include:
+  - `harsha` → `basic` → `Heavy Rain` → `completed`
+  - `harsha` → `basic` → `Heatwave` → `processing`
+  - `abhinigga` → `basic` → `Road Accident` → `completed`
+  - `koki kumar` → `nano` → `Heavy Rain` → `completed`
+
+**Schema note:**
+- The live local `payouts` table currently contains:
+  - `id`, `claim_id`, `worker_id`, `amount`, `status`, `upi_id`, `initiated_at`, `completed_at`, `failure_reason`
+- It does **not** currently contain `payout_number`, so any future code should treat payout IDs as the reliable identifier unless a migration adds that column.
+
 ## Next Steps
 
 - Add more seed data (sample workers, policies, claims)
