@@ -30,19 +30,21 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
-      <nav className="top-4 flex h-full w-full items-center gap-4 border border-border/40 rounded-full bg-background/70 backdrop-blur-xl px-4 shadow-sm pointer-events-auto sticky">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold font-display">GigShield</span>
+      <div className="sticky top-0 z-50 px-4 sm:px-6 shrink-0 h-18 pointer-events-none transition-all duration-300 bg-background pt-4 pb-2">
+        <nav className="max-w-5xl mx-auto flex h-14 items-center gap-4 border border-border/40 rounded-full bg-sidebar backdrop-blur-xl px-4 shadow-md dark:shadow-primary/5 pointer-events-auto">
+          <div className="container flex h-full items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold font-display">GigShield</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Link to="/login"><Button variant="ghost">Login</Button></Link>
+              <Link to="/register/phone"><Button>Get Protected</Button></Link>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link to="/login"><Button variant="ghost">Login</Button></Link>
-            <Link to="/register/phone"><Button>Get Protected</Button></Link>
-          </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
 
       {/* Hero */}
       <section className="container py-20 md:py-32 text-center ">

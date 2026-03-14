@@ -40,9 +40,9 @@ export function WorkerLayout() {
   useEffect(() => {
     const fetchUnread = async () => {
       try {
-        const raw   = localStorage.getItem('worker-auth-storage');
+        const raw = localStorage.getItem('worker-auth-storage');
         const token = raw ? JSON.parse(raw)?.state?.token : null;
-        const res   = await fetch('http://localhost:5000/api/notifications/worker/unread-count', {
+        const res = await fetch('http://localhost:5000/api/notifications/worker/unread-count', {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {
@@ -74,7 +74,7 @@ export function WorkerLayout() {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Sidebar - hidden on mobile, now full height */}
-      <aside className={`hidden md:flex flex-col border border-border/40 bg-sidebar/70 backdrop-blur-xl h-[calc(100vh-2rem)] m-4 rounded-[2.5rem] p-3 space-y-1 sticky top-4 z-40 shrink-0 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
+      <aside className={`hidden md:flex flex-col border border-border/40 bg-sidebar/70 backdrop-blur-xl h-[calc(100vh-2rem)] m-4 rounded-[2.5rem] p-3 space-y-1 sticky top-4 z-40 shrink-0 shadow-md dark:shadow-primary/5 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
         <div className="flex items-center gap-2 mb-6 px-2 pt-2 justify-between">
           <Link to="/dashboard" className="flex items-center gap-2 overflow-hidden">
             <Shield className="h-6 w-6 text-primary shrink-0" />

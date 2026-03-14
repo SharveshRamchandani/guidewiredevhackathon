@@ -61,9 +61,9 @@ export function AdminLayout() {
     const fetchUnread = async () => {
       try {
         const adminRaw = localStorage.getItem('admin-auth-storage');
-        const token    = adminRaw ? JSON.parse(adminRaw)?.state?.token : null;
-        
-        let endpoint = showSuperAdmin 
+        const token = adminRaw ? JSON.parse(adminRaw)?.state?.token : null;
+
+        let endpoint = showSuperAdmin
           ? 'http://localhost:5000/api/notifications/superadmin/unread-count'
           : 'http://localhost:5000/api/notifications/admin/unread-count';
 
@@ -96,7 +96,7 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Sidebar - hidden on mobile, now full height */}
-      <aside className={`hidden md:flex flex-col border border-border/40 bg-sidebar/70 backdrop-blur-xl h-[calc(100vh-2rem)] m-4 rounded-[2.5rem] p-2 space-y-1 sticky top-4 z-40 shrink-0 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
+      <aside className={`hidden md:flex flex-col border border-border/40 bg-sidebar/70 backdrop-blur-xl h-[calc(100vh-2rem)] m-4 rounded-[2.5rem] p-2 space-y-1 sticky top-4 z-40 shrink-0 shadow-md dark:shadow-primary/5 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
         <div className="flex items-center gap-2 mb-6 px-2 pt-2 justify-between">
           <Link to="/admin/dashboard" className="flex items-center gap-2 overflow-hidden">
             <Shield className="h-6 w-6 text-primary shrink-0" />
@@ -129,7 +129,7 @@ export function AdminLayout() {
                     size="sm"
                     title={item.label}
                   >
-                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} /> 
+                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} />
                     {!isCollapsed && <span>{item.label}</span>}
                   </Button>
                 </Link>
@@ -154,7 +154,7 @@ export function AdminLayout() {
                     size="sm"
                     title={item.label}
                   >
-                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} /> 
+                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} />
                     {!isCollapsed && <span>{item.label}</span>}
                   </Button>
                 </Link>

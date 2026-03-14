@@ -13,17 +13,17 @@ export interface SharedTopbarProps {
   brandLink: string;
   brandTitle?: string;
   showSuperAdminBadge?: boolean;
-  
+
   // Search
   showSearch?: boolean;
   searchValue?: string;
   onSearchChange?: (val: string) => void;
-  
+
   // Notifications
   unreadCount: number;
   notificationsLink: string;
   onNotificationsOpen?: () => void;
-  
+
   // User Profile
   initials: string;
   userName?: string;
@@ -48,11 +48,11 @@ export function SharedTopbar({
   userJobTitle,
   profileLink,
   onLogout,
-  
+
 }: SharedTopbarProps) {
   return (
     <div className="sticky top-0 z-50 px-4 sm:px-6 shrink-0 mb-4 h-18 pointer-events-none transition-all duration-300 bg-background pt-4 pb-2">
-      <header className="flex h-14 w-full items-center gap-4 border border-border/40 rounded-full bg-sidebar backdrop-blur-xl px-4 shadow-sm pointer-events-auto">
+      <header className="flex h-14 w-full items-center gap-4 border border-border/40 rounded-full bg-sidebar backdrop-blur-xl px-4 shadow-md dark:shadow-primary/5 pointer-events-auto">
         {/* Brand - Mobile Only (Visible when md:hidden) */}
         <Link to={brandLink} className="flex md:hidden items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
