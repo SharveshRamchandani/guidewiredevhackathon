@@ -12,6 +12,8 @@ import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye, 
 import { Link } from "react-router-dom";
 import { useWeather } from '@/hooks/useWeather';
 import { Skeleton } from "@/components/ui/skeleton";
+import { useWorkerAuthStore } from "@/stores/workerAuthStore";
+import { workerApi, workerDataApi } from "@/lib/api";
 
 const recentClaims = [
   { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const },
@@ -21,12 +23,48 @@ const recentClaims = [
 
 const Dashboard = () => {
   const { weather, loading, error } = useWeather();
-  const daysRemaining = 5;
-  const daysTotal = 7;
+  const { token, worker } = useWorkerAuthStore();
+  const [activePolicy, setActivePolicy] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  
+  useEffect(() => {
+    if (!token) return;
+
+    const loadData = async () => {
+      try {
+        const [profileRes, policiesRes] = await Promise.all([
+          workerDataApi.getProfile(token),
+          workerApi.getMyPolicies(token)
+        ]);
+        
+        setProfile(profileRes.data);
+        const policies = policiesRes.data || [];
+        const active = policies.find((p: any) => p.status === "active");
+        setActivePolicy(active);
+      } catch (err) {
+        console.error("Dashboard data load error:", err);
+      }
+    };
+
+    loadData();
+  }, [token]);
+
+  const stats = { totalClaims: 12, totalPayouts: "₹5,400", approvalRate: "92%" };
+
+  let daysRemaining = 5;
+  let daysTotal = 7;
+
+  if (activePolicy && activePolicy.start_date && activePolicy.end_date) {
+      const start = new Date(activePolicy.start_date);
+      const end = new Date(activePolicy.end_date);
+      const now = new Date();
+      daysTotal = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      daysRemaining = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+  }
 
   return (
       <div>
-        <PageHeader title="Dashboard" description="Welcome back, Ramesh!" />
+        <PageHeader title="Dashboard" description={`Welcome back, ${worker?.name?.split(' ')[0] || "Worker"}!`} />
 
         {/* Disruption Alert */}
         <Alert variant="destructive" className="mb-6">
@@ -187,6 +225,7 @@ const Dashboard = () => {
               )}
             </CardContent>
           </Card>
+        </div>
 
         {/* Renew Banner */}
         {activePolicy && daysRemaining <= 2 && (
