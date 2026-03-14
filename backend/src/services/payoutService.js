@@ -24,7 +24,7 @@ function simulateRazorpay(amount, upi) {
 async function initiatePayout({ claimId, workerId }) {
   // Verify approved claim
   const { rows: claims } = await query(
-    `SELECT c.*, w.upi
+    `SELECT c.*, w.upi_id
      FROM claims c
      JOIN workers w ON w.id = c.worker_id
      WHERE c.id = $1 AND c.worker_id = $2 AND c.status = 'approved'`,
@@ -35,7 +35,7 @@ async function initiatePayout({ claimId, workerId }) {
   }
   const claim = claims[0];
 
-  if (!claim.upi) {
+  if (!claim.upi_id) {
     const err = new Error('Worker has no UPI registered. Please update your profile.'); err.statusCode = 400; throw err;
   }
 
@@ -48,15 +48,15 @@ async function initiatePayout({ claimId, workerId }) {
     const err = new Error('Payout already initiated for this claim.'); err.statusCode = 409; throw err;
   }
 
-  const rz = simulateRazorpay(claim.amount, claim.upi);
+  const rz = simulateRazorpay(claim.amount, claim.upi_id);
   const payoutNumber = `PAY-${String(Date.now()).slice(-6)}`;
 
   const { rows } = await query(
     `INSERT INTO payouts
-       (payout_number, claim_id, worker_id, amount, status, upi, initiated_at)
+       (payout_number, claim_id, worker_id, amount, status, upi_id, initiated_at)
      VALUES ($1, $2, $3, $4, 'processing', $5, NOW())
      RETURNING *`,
-    [payoutNumber, claimId, workerId, claim.amount, claim.upi]
+    [payoutNumber, claimId, workerId, claim.amount, claim.upi_id]
   );
 
   const payout = rows[0];
@@ -117,7 +117,7 @@ async function processPayoutQueue() {
   // Skip if already completed
   if (payout.status === 'completed') return payout;
 
-  const rz = simulateRazorpay(parseFloat(payout.amount), payout.upi);
+  const rz = simulateRazorpay(parseFloat(payout.amount), payout.upi_id);
 
   // Mark processing (it's already in processing state, but log the gateway ref)
   console.log(`[Payout] Processing payout ${payoutId} via simulated gateway ${rz.id}`);

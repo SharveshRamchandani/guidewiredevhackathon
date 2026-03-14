@@ -38,7 +38,7 @@ async function authenticate(req, res, next) {
     if (!worker) {
       // Fall back to DB
       const { rows } = await query(
-        `SELECT id, name, phone, platform, zone_id, city_id, upi, kyc_status, risk_level
+        `SELECT id, name, phone, platform, zone_id, city, upi_id, is_kyc_verified, risk_level, active
          FROM workers WHERE id = $1`,
         [decoded.id]
       );

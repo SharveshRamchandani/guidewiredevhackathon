@@ -107,7 +107,7 @@ async function processTrigger(category, mlData, zone) {
      JOIN workers w ON w.id = p.worker_id
      WHERE p.status = 'active'
        AND w.zone_id = $1
-       AND w.is_active = TRUE`,
+       AND w.active = TRUE`,
     [zone.id]
   );
   console.log(`[Trigger] ${affectedPolicies.length} active policies in zone ${zone.name}`);
