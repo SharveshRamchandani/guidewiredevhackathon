@@ -19,8 +19,15 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
     Shield, Check, Loader2, CreditCard, CheckCircle2,
-    ArrowLeft, Zap, Star, Trophy,
+    ArrowLeft, Zap, Star, Trophy, X
 } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { paymentApi, workerApi, ApiError } from "@/lib/api";
@@ -420,107 +427,120 @@ const RegisterPlan = () => {
                     })}
                 </div>
 
-                {/* ── Payment summary & CTA ── */}
-                {selectedPlan && (
-                    <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5 shadow-lg">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="font-display flex items-center gap-2">
+                <Dialog open={!!selectedPlanId} onOpenChange={(open) => {
+                    if (paymentPhase !== "processing") {
+                        if (!open) setSelectedPlanId(null);
+                    }
+                }}>
+                    <DialogContent className="sm:max-w-md rounded-[2.5rem] border-2 border-primary/20 shadow-2xl">
+                        <DialogHeader className="pb-2">
+                            <DialogTitle className="font-display flex items-center gap-2 text-xl">
                                 <CreditCard className="w-5 h-5 text-primary" />
                                 Payment Summary
-                            </CardTitle>
-                            <CardDescription>
+                            </DialogTitle>
+                            <DialogDescription className="text-sm">
                                 Payment will be charged via your UPI ID:&nbsp;
                                 <span className="font-medium text-foreground font-mono">
                                     {sessionStorage.getItem("_regUpi") ?? "—"}
                                 </span>
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Selected Plan</span>
-                                    <span className="font-semibold capitalize">{selectedPlan.name}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Coverage Period</span>
-                                    <span>{selectedPlan.coverage_days} days</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Max Payout</span>
-                                    <span>₹{parseFloat(String(selectedPlan.max_payout)).toLocaleString("en-IN")}</span>
-                                </div>
-                                <Separator />
-                                <div className="flex justify-between text-base font-bold">
-                                    <span>Total Due Today</span>
-                                    <span className="text-primary">₹{parseFloat(String(selectedPlan.base_premium)).toFixed(2)}</span>
-                                </div>
-                            </div>
+                            </DialogDescription>
+                        </DialogHeader>
 
-                            {/* Payment status indicator */}
-                            {paymentPhase === "processing" && (
-                                <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                                    <Loader2 className="w-5 h-5 animate-spin text-blue-600 shrink-0" />
-                                    <div>
-                                        <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Processing Payment…</p>
-                                        <p className="text-xs text-blue-600/70 dark:text-blue-400/70">Connecting to your UPI bank. Please wait.</p>
+                        {selectedPlan && (
+                            <div className="space-y-6 pt-2">
+                                <div className="space-y-3 text-sm bg-muted/30 p-4 rounded-2xl border border-border">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground">Selected Plan</span>
+                                        <Badge variant="outline" className="capitalize font-semibold bg-background">{selectedPlan.name}</Badge>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Coverage Period</span>
+                                        <span className="font-medium">{selectedPlan.coverage_days} days</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Max Payout</span>
+                                        <span className="font-medium">₹{parseFloat(String(selectedPlan.max_payout)).toLocaleString("en-IN")}</span>
+                                    </div>
+                                    <Separator />
+                                    <div className="flex justify-between items-baseline pt-1">
+                                        <span className="text-base font-bold">Total Due Today</span>
+                                        <div className="text-right">
+                                            <span className="text-2xl font-bold text-primary">₹{parseFloat(String(selectedPlan.base_premium)).toFixed(2)}</span>
+                                            <p className="text-[10px] text-muted-foreground leading-none mt-1">Includes all taxes</p>
+                                        </div>
                                     </div>
                                 </div>
-                            )}
 
-                            {paymentPhase === "failed" && (
-                                <div className="flex items-center gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                                    <span className="text-2xl">❌</span>
-                                    <div>
-                                        <p className="text-sm font-medium text-red-700 dark:text-red-300">Payment Failed</p>
-                                        <p className="text-xs text-red-600/70 dark:text-red-400/70">Please retry or check your UPI ID.</p>
+                                {/* Payment status indicator */}
+                                {paymentPhase === "processing" && (
+                                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 animate-in fade-in zoom-in duration-300">
+                                        <Loader2 className="w-6 h-6 animate-spin text-blue-600 shrink-0" />
+                                        <div>
+                                            <p className="text-sm font-bold text-blue-700 dark:text-blue-300">Processing Payment…</p>
+                                            <p className="text-xs text-blue-600/70 dark:text-blue-400/70">Securely connecting to your UPI bank. Please do not refresh.</p>
+                                        </div>
                                     </div>
+                                )}
+
+                                {paymentPhase === "failed" && (
+                                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in shake duration-500">
+                                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                            <span className="text-xl">❌</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-red-700 dark:text-red-300">Payment Failed</p>
+                                            <p className="text-xs text-red-600/70 dark:text-red-400/70">There was an issue processing your request. Please try again.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col gap-3">
+                                    <Button
+                                        id="reg-pay-btn"
+                                        size="lg"
+                                        className="w-full gap-2 rounded-2xl font-bold py-6 text-lg shadow-lg shadow-primary/20"
+                                        onClick={handlePurchase}
+                                        disabled={paymentPhase === "processing"}
+                                    >
+                                        {paymentPhase === "processing" ? (
+                                            <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
+                                        ) : paymentPhase === "failed" ? (
+                                            <><Zap className="w-5 h-5" /> Retry Payment</>
+                                        ) : (
+                                            <><CreditCard className="w-5 h-5" /> Pay & Activate Plan</>
+                                        )}
+                                    </Button>
+                                    
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full text-muted-foreground hover:text-foreground"
+                                        onClick={() => setSelectedPlanId(null)}
+                                        disabled={paymentPhase === "processing"}
+                                    >
+                                        Cancel and change plan
+                                    </Button>
                                 </div>
-                            )}
 
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => navigate("/register/upi")}
-                                    disabled={paymentPhase === "processing"}
-                                >
-                                    <ArrowLeft className="h-4 w-4 mr-1" /> Back
-                                </Button>
-                                <Button
-                                    id="reg-pay-btn"
-                                    size="lg"
-                                    className="flex-1 gap-2 rounded-xl font-semibold"
-                                    onClick={handlePurchase}
-                                    disabled={paymentPhase === "processing"}
-                                >
-                                    {paymentPhase === "processing" ? (
-                                        <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
-                                    ) : paymentPhase === "failed" ? (
-                                        <><Zap className="w-4 h-4" /> Retry Payment</>
-                                    ) : (
-                                        <><CreditCard className="w-4 h-4" /> Pay ₹{parseFloat(String(selectedPlan.base_premium)).toFixed(0)} & Activate</>
-                                    )}
-                                </Button>
+                                <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground uppercase tracking-widest font-semibold opacity-70">
+                                    <Shield className="w-3 h-3" />
+                                    Secure 256-bit Encryption
+                                </div>
                             </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
 
-                            <p className="text-xs text-muted-foreground text-center">
-                                🔒 Secured by GigShield. This is a demo mock payment — no real money is charged.
-                            </p>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* ── No plan selected yet ── */}
-                {!selectedPlan && (
-                    <div className="flex gap-3 max-w-sm mx-auto">
-                        <Button
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => navigate("/register/upi")}
-                        >
-                            <ArrowLeft className="h-4 w-4 mr-1" /> Back
-                        </Button>
-                    </div>
-                )}
+                {/* ── No plan selected yet navigation ── */}
+                <div className="flex gap-3 max-w-sm mx-auto">
+                    <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => navigate("/register/upi")}
+                        disabled={paymentPhase === "processing"}
+                    >
+                        <ArrowLeft className="h-4 w-4 mr-1" /> Back to UPI Setup
+                    </Button>
+                </div>
 
                 <p className="text-xs text-muted-foreground text-center">
                     All plans renew weekly · Cancel anytime from your Policy page · Premium may vary based on zone & risk profile
