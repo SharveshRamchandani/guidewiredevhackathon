@@ -96,7 +96,7 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Sidebar - hidden on mobile, now full height */}
-      <aside className={`hidden md:flex flex-col border-r bg-card h-screen p-3 space-y-1 sticky top-0 z-40 shrink-0 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
+      <aside className={`hidden md:flex flex-col border border-border/40 bg-background/70 backdrop-blur-xl h-[calc(100vh-2rem)] m-4 rounded-[2.5rem] p-2 space-y-1 sticky top-4 z-40 shrink-0 shadow-sm transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-60'}`}>
         <div className="flex items-center gap-2 mb-6 px-2 pt-2 justify-between">
           <Link to="/admin/dashboard" className="flex items-center gap-2 overflow-hidden">
             <Shield className="h-6 w-6 text-primary shrink-0" />
@@ -124,13 +124,13 @@ export function AdminLayout() {
               {group.items.map((item) => (
                 <Link key={item.route} to={item.route}>
                   <Button
-                    variant={location.pathname === item.route ? "secondary" : "ghost"}
-                    className={`w-full gap-2 mb-1 border-l-2 border-transparent data-[active=true]:border-l-primary ${isCollapsed ? 'justify-center px-2' : 'justify-start'}`}
+                    variant="ghost"
+                    className={`w-full gap-2 mb-1 rounded-xl transition-all duration-200 group ${location.pathname === item.route ? 'bg-primary/10 text-primary shadow-sm font-medium' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'} ${isCollapsed ? 'justify-center px-2' : 'justify-start px-3'}`}
                     size="sm"
-                    data-active={location.pathname === item.route}
                     title={item.label}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" /> {!isCollapsed && <span>{item.label}</span>}
+                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} /> 
+                    {!isCollapsed && <span>{item.label}</span>}
                   </Button>
                 </Link>
               ))}
@@ -149,13 +149,13 @@ export function AdminLayout() {
               {platformGroup.items.map((item) => (
                 <Link key={item.route} to={item.route}>
                   <Button
-                    variant={location.pathname === item.route ? "secondary" : "ghost"}
-                    className={`w-full gap-2 mb-1 border-l-2 border-transparent data-[active=true]:border-l-primary ${isCollapsed ? 'justify-center px-2' : 'justify-start'}`}
+                    variant="ghost"
+                    className={`w-full gap-2 mb-1 rounded-xl transition-all duration-200 group ${location.pathname === item.route ? 'bg-primary/10 text-primary shadow-sm font-medium' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'} ${isCollapsed ? 'justify-center px-2' : 'justify-start px-3'}`}
                     size="sm"
-                    data-active={location.pathname === item.route}
                     title={item.label}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" /> {!isCollapsed && <span>{item.label}</span>}
+                    <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${location.pathname === item.route ? 'scale-110' : 'group-hover:scale-110'}`} /> 
+                    {!isCollapsed && <span>{item.label}</span>}
                   </Button>
                 </Link>
               ))}
