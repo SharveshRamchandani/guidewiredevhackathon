@@ -69,7 +69,7 @@ async function listWorkers({ page = 1, limit = 20, platform, zone_id } = {}) {
 
   const { rows } = await query(
     `SELECT w.id, w.name, w.phone, w.platform, w.city,
-            w.is_kyc_verified, w.risk_level, w.risk_score,
+            w.is_kyc_verified, w.risk_level,
             w.upi_id, w.avg_weekly_earning, w.active,
             z.name AS zone_name, w.created_at
      FROM workers w

@@ -10,11 +10,7 @@ const SALT_ROUNDS = 10;
 
 // ─── Worker Auth ──────────────────────────────────────────────────────────────
 
-<<<<<<< HEAD
-async function registerWorker({ name, phone, password, platform, zone_id, city, upi }) {
-=======
 async function registerWorker({ name, phone, password, platform, zone_id, city, upi_id }) {
->>>>>>> 25b0092092438c7af22032d74b04b42d2eb133dd
   // phone is the unique identifier for workers
   const existing = await query('SELECT id FROM workers WHERE phone = $1', [phone]);
   if (existing.rows.length) {
@@ -25,19 +21,11 @@ async function registerWorker({ name, phone, password, platform, zone_id, city, 
 
   const { rows } = await query(
     `INSERT INTO workers
-<<<<<<< HEAD
-       (name, phone, password_hash, platform, zone_id, city, upi,
-        kyc_status, risk_level, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'low', NOW(), NOW())
-     RETURNING id, name, phone, platform, zone_id, city, upi, kyc_status, risk_level, created_at`,
-    [name, phone, password_hash, platform, zone_id || null, city || null, upi || null]
-=======
-       (name, phone, platform, zone_id, city, upi_id,
+       (name, phone, password_hash, platform, zone_id, city, upi_id,
         is_kyc_verified, risk_level, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, true, 'low', NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, true, 'low', NOW(), NOW())
      RETURNING id, name, phone, platform, zone_id, city, upi_id, is_kyc_verified, risk_level, created_at`,
-    [name, phone, platform, zone_id || null, city || null, upi_id || null]
->>>>>>> 25b0092092438c7af22032d74b04b42d2eb133dd
+    [name, phone, password_hash, platform, zone_id || null, city || null, upi_id || null]
   );
 
   const worker = rows[0];
@@ -50,11 +38,7 @@ async function registerWorker({ name, phone, password, platform, zone_id, city, 
 
 async function loginWorker({ phone, password }) {
   const { rows } = await query(
-<<<<<<< HEAD
-    `SELECT id, name, phone, password_hash, platform, zone_id, city, upi, kyc_status, risk_level
-=======
-    `SELECT id, name, phone, platform, zone_id, city, upi_id, is_kyc_verified, risk_level
->>>>>>> 25b0092092438c7af22032d74b04b42d2eb133dd
+    `SELECT id, name, phone, password_hash, platform, zone_id, city, upi_id, is_kyc_verified, risk_level
      FROM workers WHERE phone = $1`,
     [phone]
   );
@@ -79,15 +63,9 @@ async function loginWorker({ phone, password }) {
 async function getWorkerProfile(workerId) {
   const { rows } = await query(
     `SELECT w.id, w.name, w.phone, w.platform, w.zone_id, w.city,
-<<<<<<< HEAD
-            w.upi, w.kyc_status, w.risk_level, w.active,
-            w.avg_weekly_earning, w.created_at,
-            z.name AS zone_name
-=======
             w.upi_id, w.is_kyc_verified, w.risk_level, w.active,
             w.avg_weekly_earning, w.notification_prefs, w.created_at,
             z.name AS zone_name, w.city AS city_name
->>>>>>> 25b0092092438c7af22032d74b04b42d2eb133dd
      FROM workers w
      LEFT JOIN zones  z ON z.id = w.zone_id
      WHERE w.id = $1`,

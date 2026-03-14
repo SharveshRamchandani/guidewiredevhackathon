@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 import { useWeather } from '@/hooks/useWeather';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
-import { workerApi, workerDataApi } from "@/lib/api";
+import { workerApi } from "@/lib/api";
 
 const recentClaims = [
   { id: "CLM-001", date: "28 Feb 2026", type: "Heavy Rain", amount: "₹450", status: "approved" as const },
@@ -32,14 +32,36 @@ const Dashboard = () => {
 
     const loadData = async () => {
       try {
-        const [profileRes, policiesRes] = await Promise.all([
-          workerDataApi.getProfile(token),
-          workerApi.getMyPolicies(token)
+        const [profileRes, policiesRes, plansRes] = await Promise.all([
+          workerApi.getProfile(token),
+          workerApi.getMyPolicies(token),
+          workerApi.getPlans()
         ]);
         
         setProfile(profileRes.data);
         const policies = policiesRes.data || [];
-        const active = policies.find((p: any) => p.status === "active");
+        let active = policies.find((p: any) => p.status === "active");
+        
+        // Fallback: cross verify plan from workers table with plans table
+        if (!active && profileRes.data?.plan_id) {
+            const plans = plansRes.data || [];
+            const subPlan = plans.find((pl: any) => pl.id === profileRes.data.plan_id);
+            if (subPlan) {
+                active = {
+                   id: 'virtual-active',
+                   policy_number: `AUTO-${String(profileRes.data.id).substring(0,6).toUpperCase() || 'NEW'}`,
+                   plan_id: subPlan.id,
+                   plan_name: subPlan.name,
+                   premium: (subPlan as any).base_premium || subPlan.weekly_premium,
+                   max_coverage: (subPlan as any).max_payout || subPlan.max_coverage,
+                   status: 'active',
+                   start_date: profileRes.data.created_at || new Date().toISOString(),
+                   end_date: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
+                   coverage_snapshot: subPlan.coverage_config
+                };
+            }
+        }
+        
         setActivePolicy(active);
       } catch (err) {
         console.error("Dashboard data load error:", err);

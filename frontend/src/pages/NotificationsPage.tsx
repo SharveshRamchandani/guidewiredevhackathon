@@ -124,13 +124,14 @@ export default function NotificationsPage() {
         endpoint = "http://localhost:5000/api/notifications/admin";
       }
 
-      const token = localStorage.getItem('token') || (() => {
-        try {
-          const w = JSON.parse(localStorage.getItem('worker-auth-storage') || '{}')?.state?.token;
-          const a = JSON.parse(localStorage.getItem('admin-auth-storage') || '{}')?.state?.token;
-          return w || a || null;
-        } catch { return null; }
-      })();
+      let token = null;
+      if (location.pathname.includes('/admin')) {
+        const { useAdminAuthStore } = await import('@/stores/adminAuthStore');
+        token = useAdminAuthStore.getState().token;
+      } else {
+        const { useWorkerAuthStore } = await import('@/stores/workerAuthStore');
+        token = useWorkerAuthStore.getState().token;
+      }
 
       const res = await fetch(endpoint, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},

@@ -152,14 +152,53 @@ async function getPolicyById(policyId, workerId = null) {
 async function getWorkerPolicies(workerId) {
   try {
     const { rows } = await query(
-      `SELECT p.*, pl.name AS plan_name, pl.max_payout, pl.base_premium
+      `SELECT p.*, pl.name AS plan_name, pl.max_payout, pl.base_premium, pl.coverage_config AS current_config
        FROM policies p
        JOIN plans pl ON pl.id = p.plan_id
        WHERE p.worker_id = $1
        ORDER BY p.created_at DESC`,
       [workerId]
     );
-    return rows;
+    
+    // If no explicit policies exist, pull the plan_id from workers table and build an active policy representation
+    if (rows.length === 0) {
+      const { rows: workerRows } = await query(
+        `SELECT w.plan_id, w.created_at, pl.name AS plan_name, pl.max_payout, pl.base_premium, pl.coverage_config
+         FROM workers w
+         JOIN plans pl ON pl.id = w.plan_id
+         WHERE w.id = $1`,
+        [workerId]
+      );
+      
+      if (workerRows.length > 0 && workerRows[0].plan_id) {
+        // Build a virtual active policy
+        const start = workerRows[0].created_at ? new Date(workerRows[0].created_at).toISOString() : new Date().toISOString();
+        const endD = new Date(start);
+        endD.setDate(endD.getDate() + 30); // 30 day policy
+        const end = endD.toISOString();
+        
+        return [{
+           id: 'implicit-' + workerId,
+           policy_number: 'AUTO-' + String(workerId).slice(0, 6).toUpperCase(),
+           worker_id: workerId,
+           plan_id: workerRows[0].plan_id,
+           plan_name: workerRows[0].plan_name,
+           premium: workerRows[0].base_premium,
+           max_coverage: workerRows[0].max_payout,
+           status: 'active',
+           auto_renew: true,
+           start_date: start,
+           end_date: end,
+           coverage_snapshot: workerRows[0].coverage_config
+        }];
+      }
+    }
+    
+    // Supplement missing snapshots with current plan config
+    return rows.map(r => ({
+      ...r,
+      coverage_snapshot: r.coverage_snapshot || r.current_config
+    }));
   } catch (err) {
     console.error('[PolicyService] Error in getWorkerPolicies:', err.message);
     throw err;

@@ -56,12 +56,38 @@ const Policy = () => {
       try {
         setLoading(true);
         setError(null);
-        const [policiesRes, plansRes] = await Promise.all([
+        const [policiesRes, plansRes, profileRes] = await Promise.all([
           workerApi.getMyPolicies(token),
           workerApi.getPlans(),
+          workerApi.getProfile(token)
         ]);
-        setAllPolicies(policiesRes.data || []);
-        setPlans(plansRes.data || []);
+        const fetchedPolicies = policiesRes.data || [];
+        const fetchedPlans = plansRes.data || [];
+        let explicitActive = fetchedPolicies.find((p: any) => p.status === "active");
+        
+        // Fallback cross verification using profile.plan_id
+        if (!explicitActive && profileRes.data?.plan_id) {
+            const subPlan = fetchedPlans.find((pl: any) => pl.id === profileRes.data.plan_id);
+            if (subPlan) {
+                const startD = String(profileRes.data.created_at || new Date().toISOString());
+                const vPolicy = {
+                    id: "virtual-active",
+                    policy_number: `AUTO-${String(profileRes.data.id).substring(0,6).toUpperCase() || "NEW"}`,
+                    status: "active",
+                    plan_id: subPlan.id,
+                    plan_name: subPlan.name,
+                    premium: (subPlan as any).base_premium || subPlan.weekly_premium,
+                    max_coverage: (subPlan as any).max_payout || subPlan.max_coverage,
+                    start_date: startD,
+                    end_date: new Date(new Date(startD).setDate(new Date(startD).getDate() + 30)).toISOString(),
+                    coverage_snapshot: subPlan.coverage_config
+                };
+                fetchedPolicies.unshift(vPolicy); // put it in front so it's found below
+            }
+        }
+        
+        setAllPolicies(fetchedPolicies);
+        setPlans(fetchedPlans);
       } catch (err: any) {
         setError(err.message);
         toast({
@@ -111,8 +137,8 @@ const Policy = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹{activePolicy.premium}/week</p></div>
                 <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹{Math.round(activePolicy.max_coverage).toLocaleString()}/week</p></div>
-                <div><span className="text-muted-foreground">Valid</span><p className="font-medium">{new Date(activePolicy.start_date).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} – {new Date(activePolicy.end_date).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</p></div>
-                <div><span className="text-muted-foreground">Zone</span><p className="font-medium">{worker?.platform || "Your Zone"}</p></div>
+                <div><span className="text-muted-foreground">Valid</span><p className="font-medium">{formatDate(activePolicy.start_date)} – {formatDate(activePolicy.end_date)}</p></div>
+                <div><span className="text-muted-foreground">Zone</span><p className="font-medium">{(worker as any)?.platform || "Your Platform"}</p></div>
               </div>
 
             <Separator />
@@ -131,20 +157,16 @@ const Policy = () => {
 
                 <DialogContent className="max-w-lg">
                   <DialogHeader><DialogTitle className="font-display">Choose a Plan</DialogTitle></DialogHeader>
-                  <RadioGroup defaultValue="standard" className="space-y-3">
-                    {[
-                      { value: "basic", label: "Basic", price: "₹19/week", coverage: "₹1,000" },
-                      { value: "standard", label: "Standard", price: "₹35/week", coverage: "₹2,000" },
-                      { value: "premium", label: "Premium", price: "₹59/week", coverage: "₹5,000" },
-                    ].map((plan) => (
-                      <div key={plan.value} className="flex items-center gap-3 border rounded-lg p-4">
-                        <RadioGroupItem value={plan.value} id={plan.value} />
-                        <Label htmlFor={plan.value} className="flex-1 cursor-pointer">
+                  <RadioGroup value={selectedPlanId} onValueChange={setSelectedPlanId} className="space-y-3">
+                    {plans.map((plan) => (
+                      <div key={plan.id} className="flex items-center gap-3 border rounded-lg p-4">
+                        <RadioGroupItem value={plan.id} id={plan.id} />
+                        <Label htmlFor={plan.id} className="flex-1 cursor-pointer">
                           <div className="flex justify-between">
-                            <span className="font-semibold">{plan.label}</span>
-                            <span className="text-primary font-semibold">{plan.price}</span>
+                            <span className="font-semibold">{plan.name}</span>
+                            <span className="text-primary font-semibold">₹{Number(plan.base_premium).toLocaleString()}/week</span>
                           </div>
-                          <span className="text-sm text-muted-foreground">Max coverage: {plan.coverage}</span>
+                          <span className="text-sm text-muted-foreground">Max coverage: ₹{Number(plan.max_payout).toLocaleString()}</span>
                         </Label>
                       </div>
                     ))}

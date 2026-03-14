@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, FileX, Loader2 } from "lucide-react";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
-import { workerDataApi } from "@/lib/api";
+import { claimsApi } from "@/lib/api";
 
 interface ClaimData {
   id: string;
@@ -39,7 +39,7 @@ const Claims = () => {
     const loadClaims = async () => {
       setLoading(true);
       try {
-        const res = await workerDataApi.getMyClaims(token);
+        const res = await claimsApi.getMyClaims(token);
         setClaims((res.data || []) as unknown as ClaimData[]);
       } catch (err) {
         console.error("Claims load error:", err);

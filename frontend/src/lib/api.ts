@@ -1,7 +1,4 @@
-/**
- * API Client — GigShield
- * Centralized fetch wrapper with error normalization.
- */
+
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -111,77 +108,19 @@ export const workerApi = {
 
     getMyPolicies: (token: string) =>
         apiFetch<{ success: boolean; data: Array<any> }>('/api/policy/my', {}, token),
-};
 
-
-
-// ─── Mock Payment ─────────────────────────────────────────────────────────────
-
-export const paymentApi = {
-    /** Process a mock UPI payment for plan purchase during registration */
-    processPayment: (data: {
-        upi_id: string;
-        amount: number;
-        plan_id: string;
-        plan_name: string;
-    }) =>
-        apiFetch<{
-            success: boolean;
-            transaction_id: string;
-            status: string;
-            upi_id: string;
-            amount_paid: number;
-            plan_id: string;
-            plan_name: string;
-            paid_at: string;
-            message: string;
-        }>(
-            '/api/payment/process',
-            { method: 'POST', body: JSON.stringify(data) }
-        ),
-
-    /** Verify a previously processed transaction */
-    verifyPayment: (txnId: string) =>
-        apiFetch<{
-            success: boolean;
-            transaction_id: string;
-            status: string;
-            verified_at: string;
-        }>(`/api/payment/verify/${txnId}`),
-};
-
-// ─── Worker Data APIs ─────────────────────────────────────────────────────────
-
-export const workerDataApi = {
     getProfile: (token: string) =>
-        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
-            '/api/profile', {}, token
-        ),
-
-    getMyPolicies: (token: string) =>
-        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
-            '/api/policy/my', {}, token
-        ),
-
-    getPolicy: (id: string, token: string) =>
-        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
-            `/api/policy/${id}`, {}, token
-        ),
-
-    getMyClaims: (token: string) =>
-        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
-            '/api/claims/my', {}, token
-        ),
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>('/api/profile', {}, token),
 
     getMyPayouts: (token: string) =>
-        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
-            '/api/payouts/my', {}, token
-        ),
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>('/api/payouts/my', {}, token),
+};
 
-    renewPolicy: (id: string, token: string) =>
-        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
-            `/api/policy/${id}/renew`, { method: 'POST' }, token
-        ),
+// ─── Claims ───────────────────────────────────────────────────────────────────
+
+export const claimsApi = {
+    getMyClaims: (token: string) =>
+        apiFetch<{ success: boolean; data: Array<any> }>('/api/claims/my', {}, token),
 };
 
 // ─── Admin Data APIs ──────────────────────────────────────────────────────────
@@ -246,6 +185,41 @@ export const adminDataApi = {
             { method: 'POST', body: JSON.stringify({ reason }) },
             token
         ),
+};
+
+// ─── Mock Payment ─────────────────────────────────────────────────────────────
+
+export const paymentApi = {
+    /** Process a mock UPI payment for plan purchase during registration */
+    processPayment: (data: {
+        upi_id: string;
+        amount: number;
+        plan_id: string;
+        plan_name: string;
+    }) =>
+        apiFetch<{
+            success: boolean;
+            transaction_id: string;
+            status: string;
+            upi_id: string;
+            amount_paid: number;
+            plan_id: string;
+            plan_name: string;
+            paid_at: string;
+            message: string;
+        }>(
+            '/api/payment/process',
+            { method: 'POST', body: JSON.stringify(data) }
+        ),
+
+    /** Verify a previously processed transaction */
+    verifyPayment: (txnId: string) =>
+        apiFetch<{
+            success: boolean;
+            transaction_id: string;
+            status: string;
+            verified_at: string;
+        }>(`/api/payment/verify/${txnId}`),
 };
 
 // ─── Admin Auth ───────────────────────────────────────────────────────────────

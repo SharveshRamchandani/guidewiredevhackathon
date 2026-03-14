@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Separator } from "@/components/ui/separator";
 import { IndianRupee, Receipt, Pencil, Check, X, Loader2 } from "lucide-react";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
-import { workerDataApi } from "@/lib/api";
+import { workerApi } from "@/lib/api";
 
 interface PayoutData {
   id: string;
@@ -40,8 +40,8 @@ const Payouts = () => {
       setLoading(true);
       try {
         const [payoutsRes, profileRes] = await Promise.all([
-          workerDataApi.getMyPayouts(token).catch(() => ({ success: false, data: [] })),
-          workerDataApi.getProfile(token).catch(() => ({ success: false, data: null })),
+          workerApi.getMyPayouts(token).catch(() => ({ success: false, data: [] })),
+          workerApi.getProfile(token).catch(() => ({ success: false, data: null })),
         ]);
         setPayouts((payoutsRes.data || []) as unknown as PayoutData[]);
         if (profileRes.data) {

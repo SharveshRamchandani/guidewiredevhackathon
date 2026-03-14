@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkerAuthStore } from "@/stores/workerAuthStore";
-import { workerDataApi } from "@/lib/api";
+import { workerApi } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
 const Profile = () => {
@@ -35,7 +35,7 @@ const Profile = () => {
     const loadProfile = async () => {
       setLoading(true);
       try {
-        const res = await workerDataApi.getProfile(token);
+        const res = await workerApi.getProfile(token);
         const data = res.data;
         if (data) {
           setProfile(data);
