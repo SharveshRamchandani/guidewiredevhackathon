@@ -21,6 +21,7 @@ const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const paymentRoutes     = require('./routes/paymentRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 // ─── RBA Notification Event Listeners ─────────────────────────────────────────
 // CRITICAL: This must be required to register all eventBus listeners.
@@ -85,6 +86,7 @@ app.use('/api/admin', adminRoutes);            // admin protected (registered la
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payment',      paymentRoutes);      // Mock payment gateway
 app.use('/api/profile', profileRoutes);        // Scenario 3: profile event notifications
+app.use('/api/chat', chatRoutes);
 
 // ─── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) =>
