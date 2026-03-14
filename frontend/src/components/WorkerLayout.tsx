@@ -30,6 +30,7 @@ export function WorkerLayout() {
   });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [search, setSearch] = useState("");
 
   const { worker, logout } = useWorkerAuthStore();
   const initials = worker?.name
@@ -109,7 +110,9 @@ export function WorkerLayout() {
         {/* Top Nav */}
         <SharedTopbar
           brandLink="/dashboard"
-          showSearch={false}
+          showSearch={true}
+          searchValue={search}
+          onSearchChange={setSearch}
           unreadCount={unreadCount}
           notificationsLink="/notifications"
           onNotificationsOpen={() => handleNotifOpen(true)}

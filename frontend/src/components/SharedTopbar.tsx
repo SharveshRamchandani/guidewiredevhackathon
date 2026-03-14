@@ -67,19 +67,28 @@ export function SharedTopbar({
         {/* Search Bar - Center */}
         <div className="flex-1 flex justify-start items-center">
           {showSearch && (
-            <div className="relative w-full max-w-md hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search..."
-                className="w-full pl-9 pr-12 h-9 bg-muted/30 border-0 rounded-full focus-visible:ring-1"
-                value={searchValue}
-                onChange={(e) => onSearchChange?.(e.target.value)}
-              />
-              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-background/50 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                <span className="text-xs">⌘</span>F
-              </kbd>
-            </div>
+            <>
+              {/* Desktop Search */}
+              <div className="relative bg-white/50 dark:bg-muted/10 rounded-full w-full max-w-md hidden md:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search..."
+                  className="w-full pl-9 pr-12 h-9 bg-muted/30 border-0 rounded-full focus-visible:ring-1"
+                  value={searchValue}
+                  onChange={(e) => onSearchChange?.(e.target.value)}
+                />
+                <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-background/50 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>F
+                </kbd>
+              </div>
+              
+              {/* Mobile Search Icon Only */}
+              <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 rounded-full hover:bg-muted/50">
+                <Search className="h-5 w-5" />
+                <span className="sr-only">Search</span>
+              </Button>
+            </>
           )}
         </div>
 

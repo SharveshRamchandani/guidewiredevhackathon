@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,23 +31,55 @@ const zones: Record<string, { name: string; risk: "low" | "medium" | "high" }[]>
 
 const Register = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [step, setStep] = useState(() => Number(sessionStorage.getItem("reg_step")) || 1);
+  const [phone, setPhone] = useState(() => sessionStorage.getItem("reg_phone") || "");
+  const [otpSent, setOtpSent] = useState(() => sessionStorage.getItem("reg_otpSent") === "true");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
-  const [name, setName] = useState("");
-  const [platform, setPlatform] = useState("");
-  const [city, setCity] = useState("");
-  const [zone, setZone] = useState("");
-  const [earnings, setEarnings] = useState("");
-  const [aadhaar, setAadhaar] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [kycVerified, setKycVerified] = useState(false);
-  const [upi, setUpi] = useState("");
+  const [name, setName] = useState(() => sessionStorage.getItem("reg_name") || "");
+  const [platform, setPlatform] = useState(() => sessionStorage.getItem("reg_platform") || "");
+  const [city, setCity] = useState(() => sessionStorage.getItem("reg_city") || "");
+  const [zone, setZone] = useState(() => sessionStorage.getItem("reg_zone") || "");
+  const [earnings, setEarnings] = useState(() => sessionStorage.getItem("reg_earnings") || "");
+  const [aadhaar, setAadhaar] = useState(() => sessionStorage.getItem("reg_aadhaar") || "");
+  const [consent, setConsent] = useState(() => sessionStorage.getItem("reg_consent") === "true");
+  const [kycVerified, setKycVerified] = useState(() => sessionStorage.getItem("reg_kycVerified") === "true");
+  const [upi, setUpi] = useState(() => sessionStorage.getItem("reg_upi") || "");
   const [upiValid, setUpiValid] = useState<boolean | null>(null);
 
-  const progress = (step / 4) * 100;
+  // Persistence
+  useEffect(() => { sessionStorage.setItem("reg_step", step.toString()); }, [step]);
+  useEffect(() => { sessionStorage.setItem("reg_phone", phone); }, [phone]);
+  useEffect(() => { sessionStorage.setItem("reg_otpSent", otpSent.toString()); }, [otpSent]);
+  useEffect(() => { sessionStorage.setItem("reg_name", name); }, [name]);
+  useEffect(() => { sessionStorage.setItem("reg_platform", platform); }, [platform]);
+  useEffect(() => { sessionStorage.setItem("reg_city", city); }, [city]);
+  useEffect(() => { sessionStorage.setItem("reg_zone", zone); }, [zone]);
+  useEffect(() => { sessionStorage.setItem("reg_earnings", earnings); }, [earnings]);
+  useEffect(() => { sessionStorage.setItem("reg_aadhaar", aadhaar); }, [aadhaar]);
+  useEffect(() => { sessionStorage.setItem("reg_consent", consent.toString()); }, [consent]);
+  useEffect(() => { sessionStorage.setItem("reg_kycVerified", kycVerified.toString()); }, [kycVerified]);
+  useEffect(() => { sessionStorage.setItem("reg_upi", upi); }, [upi]);
+
+  const progress = (step / 5) * 100;
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      if (step === 1) {
+        if (!otpSent) {
+          if (phone.length === 10) handleSendOtp();
+        } else {
+          if (otp.length === 6) handleVerifyOtp();
+        }
+      } else if (step === 2) {
+        if (name && platform && city && zone && earnings) setStep(3);
+      } else if (step === 3) {
+        if (aadhaar.length === 4 && consent) handleKycVerify();
+      } else if (step === 4) {
+        if (upiValid) navigate("/dashboard");
+      }
+    }
+  };
 
   const handleSendOtp = () => {
     if (phone.length !== 10) { setError("Enter a valid 10-digit number"); return; }
@@ -81,7 +113,7 @@ const Register = () => {
         <Progress value={progress} className="h-1" />
       </div>
 
-      <div className="container max-w-lg py-8">
+      <div className="container max-w-lg py-8" onKeyDown={handleKeyDown}>
         {/* Step 1: Phone */}
         {step === 1 && (
           <Card>
@@ -223,7 +255,7 @@ const Register = () => {
               <div className="space-y-2">
                 <Label>UPI ID</Label>
                 <div className="relative">
-                  <Input placeholder="name@upi" value={upi} onChange={(e) => handleUpiChange(e.target.value)} />
+                  <Input placeholder="name@upi" value={upi} onChange={(e) => handleUpiChange(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && upiValid && navigate("/dashboard")} />
                   {upiValid !== null && (
                     <Badge className="absolute right-2 top-1/2 -translate-y-1/2" variant={upiValid ? "outline" : "destructive"}>
                       {upiValid ? "Valid UPI ✓" : "Invalid"}

@@ -55,6 +55,7 @@ export function AdminLayout() {
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [search, setSearch] = useState("");
 
   // ── Fetch live unread count every 30s ────────────────────────────────────
   useEffect(() => {
@@ -171,6 +172,8 @@ export function AdminLayout() {
           brandLink="/admin/dashboard"
           showSuperAdminBadge={showSuperAdmin}
           showSearch={true}
+          searchValue={search}
+          onSearchChange={setSearch}
           unreadCount={unreadCount}
           notificationsLink="/admin/notifications"
           onNotificationsOpen={() => handleNotifOpen(true)}
