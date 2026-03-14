@@ -39,8 +39,7 @@ export function ExpandableChatDemo() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
+  const sendMessage = () => {
     if (!input.trim()) return
 
     setMessages((prev) => [
@@ -65,6 +64,18 @@ export function ExpandableChatDemo() {
       ])
       setIsLoading(false)
     }, 1000)
+  }
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    sendMessage()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      sendMessage()
+    }
   }
 
   const handleAttachFile = () => {
@@ -131,6 +142,7 @@ export function ExpandableChatDemo() {
             <ChatInput
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Type your message..."
               className="min-h-12 resize-none rounded-lg bg-background border-0 p-3 shadow-none focus-visible:ring-0"
             />
