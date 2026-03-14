@@ -17,7 +17,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Shield, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
+import { Navigate } from "react-router-dom"; 
 const Policy = () => {
   const { token, worker } = useWorkerAuthStore();
   const { toast } = useToast();
@@ -148,12 +148,13 @@ const Policy = () => {
                 <Label>Auto-renew policy</Label>
               </div>
               <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
+               <Button
+                  variant="outline"
+                    onClick={() => navigate("/plans")}
+>
                     <Shield className="h-4 w-4 mr-1" />
                     Upgrade Plan
-                  </Button>
-                </DialogTrigger>
+                </Button>
 
                 <DialogContent className="max-w-lg">
                   <DialogHeader><DialogTitle className="font-display">Choose a Plan</DialogTitle></DialogHeader>
