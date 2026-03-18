@@ -130,8 +130,8 @@ backend/src/
 │   └── adminController.js
 ├── services/           ← Business logic
 │   ├── authService.js  ← bcrypt + JWT, worker/admin auth
-│   ├── policyService.js← ML risk-score, premium calc, CRUD
-│   ├── claimsService.js← ML fraud-score, auto-approve, queue
+│   ├── policyService.js← ML risk-score + plan-aware premium pricing, CRUD
+│   ├── claimsService.js← ML fraud-score, auto-approve/review/reject, queue
 │   ├── payoutService.js← Simulated Razorpay, queue processor
 │   ├── adminService.js ← Dashboard KPIs, analytics, config
 │   └── triggerService.js← ML trigger calls per zone
@@ -157,24 +157,26 @@ All protected routes require: `Authorization: Bearer <token>`
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| POST | `/api/auth/register` | ❌ | Register worker (phone-based) |
-| POST | `/api/auth/login` | ❌ | Worker login |
+| POST | `/api/auth/send-otp` | ❌ | Send OTP for worker login/onboarding |
+| POST | `/api/auth/verify-otp` | ❌ | Verify OTP and either login or start registration |
+| POST | `/api/auth/register/complete` | ✅ Registration token | Complete worker onboarding |
 | GET | `/api/auth/me` | ✅ Worker | Get profile |
 | POST | `/api/auth/logout` | ✅ Worker | Logout + blacklist token |
 | POST | `/api/admin/auth/login` | ❌ | Admin login |
 | POST | `/api/admin/auth/logout` | ✅ Admin | Admin logout |
 
-**Register worker:**
+**Worker onboarding:**
 ```json
-POST /api/auth/register
+POST /api/auth/register/complete
 {
   "name": "Ravi Kumar",
-  "phone": "9876543210",
-  "password": "secret123",
   "platform": "Swiggy",
-  "zone_id": "<uuid>",
-  "city_id": "<uuid>",
-  "upi": "ravi@upi"
+  "city": "Mumbai",
+  "zoneId": "<uuid>",
+  "avgWeeklyEarning": 6800,
+  "aadhaarLast4": "1234",
+  "upiId": "ravi@upi",
+  "planId": "<uuid>"
 }
 ```
 
@@ -245,7 +247,8 @@ POST /api/auth/register
 
 | Backend Service | ML Endpoint | Type | Purpose |
 |----------------|-------------|------|---------|
-| Policy quote | `/ml/risk-score` | POST | Risk score → premium |
+| Policy quote | `/ml/risk-score` | POST | Risk classification + reference pricing signals |
+| Policy quote | `/ml/premium` | POST | Final plan-aware premium and coverage calculation |
 | Claim initiation | `/ml/fraud-score` | POST | Fraud decision |
 | Trigger cron | `/triggers/weather?zone_id=` | GET | Weather threshold |
 | Trigger cron | `/triggers/aqi?zone_id=` | GET | AQI threshold |

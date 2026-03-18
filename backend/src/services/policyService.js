@@ -46,12 +46,19 @@ async function generateQuote({ workerId, planId }) {
     const err = new Error('Plan not found.'); err.statusCode = 404; throw err;
   }
   const plan = plans[0];
+  const coverageEntries = Object.values(plan.coverage_config || {});
+  const coveredEventCount = coverageEntries.length;
+  const avgCopay = coveredEventCount
+    ? coverageEntries.reduce((sum, entry) => sum + (parseFloat(entry.coPay) || 0), 0) / coveredEventCount
+    : 0.2;
 
   // Zone risk → numeric values for ML
   const zoneRisk = parseFloat(w.zone_risk_factor) || 0.3;
 
   let riskScore = 0.5;
   let riskLabel = 'medium';
+  let weeklyPremium = parseFloat(plan.base_premium) || 49;
+  let maxCoverage = parseFloat(plan.max_payout) || 1000;
 
   try {
     const mlPayload = {
@@ -63,6 +70,10 @@ async function generateQuote({ workerId, planId }) {
       past_claims_count: parseInt(w.past_claims_count, 10) || 0,
       zone_flood_risk: zoneRisk,
       zone_heat_risk: zoneRisk * 0.7,
+      plan_base_premium: parseFloat(plan.base_premium) || 49,
+      plan_max_payout: parseFloat(plan.max_payout) || 1000,
+      covered_event_count: coveredEventCount,
+      avg_copay: Number(avgCopay.toFixed(4)),
     };
     const { data: ml } = await mlClient.post('/ml/risk-score', mlPayload);
     riskScore = ml.risk_score ?? 0.5;
@@ -75,10 +86,30 @@ async function generateQuote({ workerId, planId }) {
     riskLabel = riskScore < 0.35 ? 'low' : riskScore < 0.65 ? 'medium' : 'high';
   }
 
-  // Premium = plan.base_premium * (1 + riskScore * 0.5) — max 1.5x at risk=1.0
-  const scaledPremium = Math.round(
-    parseFloat(plan.base_premium) * (1 + riskScore * 0.5)
-  );
+  // Premium is now derived from the plan-aware ML pricing endpoint with bounded guardrails.
+  // Plan-aware premium is calculated by the ML pricing endpoint with product guardrails.
+  try {
+    const { data: pricing } = await mlClient.post('/ml/premium', {
+      worker_id: `W_${workerId}`,
+      plan_name: plan.name,
+      plan_base_premium: parseFloat(plan.base_premium) || 49,
+      plan_max_payout: parseFloat(plan.max_payout) || 1000,
+      covered_event_count: coveredEventCount,
+      avg_copay: Number(avgCopay.toFixed(4)),
+      risk_label: riskLabel,
+      risk_score: riskScore,
+      city_climate_risk: zoneRisk,
+      disruption_probability: zoneRisk,
+      vulnerability_score: Math.min((parseInt(w.past_claims_count, 10) || 0) * 0.08, 0.25),
+    });
+    weeklyPremium = pricing.weekly_premium_inr ?? weeklyPremium;
+    maxCoverage = pricing.coverage_amount_inr ?? maxCoverage;
+  } catch (pricingErr) {
+    console.warn('[Policy] ML premium unavailable, using bounded fallback:', pricingErr.message);
+    const fallbackMultiplier = 1 + Math.min(Math.max(riskScore - 0.5, 0), 0.4) * 0.4 + zoneRisk * 0.08;
+    weeklyPremium = Math.round((parseFloat(plan.base_premium) || 49) * fallbackMultiplier);
+    maxCoverage = parseFloat(plan.max_payout) || 1000;
+  }
 
   return {
     worker_id: workerId,
@@ -86,8 +117,8 @@ async function generateQuote({ workerId, planId }) {
     plan_name: plan.name,
     risk_score: riskScore,
     risk_label: riskLabel,
-    weekly_premium: scaledPremium,
-    max_coverage: parseFloat(plan.max_payout),
+    weekly_premium: weeklyPremium,
+    max_coverage: maxCoverage,
     valid_for_hours: 24,
   };
 }

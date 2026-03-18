@@ -72,7 +72,7 @@ def _llm_explanation(
         "approved": (
             f"The claim was approved because disruption probability ({disruption_probability:.0%}) "
             f"exceeded the trigger threshold and fraud score ({fraud_score:.2f}) was below the "
-            f"auto-approve threshold of 0.30. Payout of Rs.{payout_amount} was issued."
+            f"auto-approve threshold of 0.40. Payout of Rs.{payout_amount} was issued."
         ),
         "pending_review": (
             f"The claim is pending manual review because disruption probability ({disruption_probability:.0%}) "

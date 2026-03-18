@@ -5,7 +5,7 @@ const { PAYOUT_RATIOS } = require('./policyService');
 const eventBus   = require('../events/eventBus'); // RBA event bus
 
 // ML decision thresholds
-const AUTO_APPROVE_THRESHOLD = 0.30;
+const AUTO_APPROVE_THRESHOLD = 0.40;
 const AUTO_REJECT_THRESHOLD  = 0.60;
 
 // Valid claim types per actual schema CHECK constraint
@@ -18,7 +18,7 @@ const VALID_CLAIM_TYPES = ['Heavy Rain', 'Poor AQI', 'Heatwave', 'Platform Outag
 async function initiateClaimAuto({ workerId, policyId, eventId, type, description, gpsMatch }) {
   // Validate active policy
   const { rows: policies } = await query(
-    `SELECT p.*, pl.max_payout, pl.coverage_config
+    `SELECT p.*, pl.name AS plan_name, pl.base_premium, pl.max_payout, pl.coverage_config
      FROM policies p
      JOIN plans pl ON pl.id = p.plan_id
      WHERE p.id = $1 AND p.worker_id = $2 AND p.status = 'active'`,
@@ -39,10 +39,19 @@ async function initiateClaimAuto({ workerId, policyId, eventId, type, descriptio
     [workerId]
   );
   const velocity7d = parseInt(velocityResult.rows[0].cnt, 10);
+  const rejectionResult = await query(
+    `SELECT COUNT(*) AS cnt FROM claims
+     WHERE worker_id = $1
+       AND status = 'rejected'
+       AND created_at > NOW() - INTERVAL '90 days'`,
+    [workerId]
+  );
+  const priorRejections90d = parseInt(rejectionResult.rows[0].cnt, 10);
 
   let fraudScore = 0.25;
   let decision   = 'auto_approve';
   let mlReason   = 'Fallback: ML service unavailable';
+  const amount = calculatePayout(parseFloat(policy.max_payout), claimType);
 
   try {
     const mlPayload = {
@@ -53,6 +62,14 @@ async function initiateClaimAuto({ workerId, policyId, eventId, type, descriptio
       historical_zone_presence:       0.8,
       time_since_event_seconds:       300,
       platform_activity_during_event: 0.7,
+      plan_name:                      policy.plan_name || 'basic',
+      season:                         deriveSeason(),
+      event_type:                     claimType,
+      plan_base_premium:              parseFloat(policy.base_premium) || 49,
+      plan_max_payout:                parseFloat(policy.max_payout) || 1000,
+      claimed_amount:                 amount,
+      claimed_amount_ratio:           parseFloat(policy.max_payout) ? Number((amount / parseFloat(policy.max_payout)).toFixed(4)) : 0.25,
+      prior_rejections_90d:           priorRejections90d,
     };
 
     const { data: ml } = await mlClient.post('/ml/fraud-score', mlPayload);
@@ -67,7 +84,6 @@ async function initiateClaimAuto({ workerId, policyId, eventId, type, descriptio
   }
 
   const status = mapDecisionToStatus(decision);
-  const amount = calculatePayout(parseFloat(policy.max_payout), claimType);
 
   // Generate claim number
   const claimNumber = `CLM-${String(Date.now()).slice(-6)}`;
@@ -263,6 +279,14 @@ function normaliseClaimType(type) {
 function calculatePayout(maxCoverage, claimType) {
   const ratio = PAYOUT_RATIOS[claimType] || 0.35;
   return Math.round(maxCoverage * ratio * 100) / 100;
+}
+
+function deriveSeason(date = new Date()) {
+  const month = date.getMonth() + 1;
+  if ([6, 7, 8, 9].includes(month)) return 'monsoon';
+  if ([3, 4, 5].includes(month)) return 'summer';
+  if ([10, 11].includes(month)) return 'festival';
+  return 'winter';
 }
 
 /**
