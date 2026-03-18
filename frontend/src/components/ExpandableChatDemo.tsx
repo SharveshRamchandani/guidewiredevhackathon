@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, FormEvent } from "react"
-import { Send, Bot, Paperclip, Mic, CornerDownLeft } from "lucide-react"
+import { useMemo, useState, FormEvent, KeyboardEvent } from "react"
+import { Bot, Paperclip, Mic, CornerDownLeft } from "lucide-react"
+import { useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
   ChatBubble,
@@ -16,22 +17,31 @@ import {
   ExpandableChatFooter,
 } from "@/components/ui/expandable-chat"
 import { ChatMessageList } from "@/components/ui/chat-message-list"
+import { chatApi } from "@/lib/api"
+import { useWorkerAuthStore } from "@/stores/workerAuthStore"
+import { useAdminAuthStore } from "@/stores/adminAuthStore"
+
+interface ChatMessage {
+  id: number
+  content: string
+  sender: "ai" | "user"
+}
 
 export function ExpandableChatDemo() {
-  const [messages, setMessages] = useState([
+  const location = useLocation()
+  const worker = useWorkerAuthStore((state) => state.worker)
+  const admin = useAdminAuthStore((state) => state.admin)
+  const role = useMemo<"worker" | "admin" | "super_admin" | "guest">(() => {
+    if (admin?.role === "super_admin") return "super_admin"
+    if (admin?.role === "admin") return "admin"
+    if (worker) return "worker"
+    return "guest"
+  }, [admin, worker])
+
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 1,
-      content: "Hello! How can I help you today?",
-      sender: "ai",
-    },
-    {
-      id: 2,
-      content: "I have a question about the component library.",
-      sender: "user",
-    },
-    {
-      id: 3,
-      content: "Sure! I'd be happy to help. What would you like to know?",
+      content: "Hi. Ask me about policies, claims, payouts, onboarding, or risk signals in GigShield.",
       sender: "ai",
     },
   ])
@@ -39,42 +49,63 @@ export function ExpandableChatDemo() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const sendMessage = () => {
-    if (!input.trim()) return
+  const sendMessage = async () => {
+    const trimmedInput = input.trim()
+    if (!trimmedInput || isLoading) return
+
+    const userMessage: ChatMessage = {
+      id: Date.now(),
+      content: trimmedInput,
+      sender: "user",
+    }
 
     setMessages((prev) => [
       ...prev,
-      {
-        id: prev.length + 1,
-        content: input,
-        sender: "user",
-      },
+      userMessage,
     ])
     setInput("")
     setIsLoading(true)
 
-    setTimeout(() => {
+    try {
+      const result = await chatApi.sendMessage({
+        message: trimmedInput,
+        context: {
+          role,
+          page: location.pathname,
+        },
+      })
+
       setMessages((prev) => [
         ...prev,
         {
-          id: prev.length + 1,
-          content: "This is an AI response to your message.",
+          id: Date.now() + 1,
+          content: result.data.reply,
           sender: "ai",
         },
       ])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          content: "Chat is unavailable right now. Try again in a moment.",
+          sender: "ai",
+        },
+      ])
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    sendMessage()
+    await sendMessage()
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
-      sendMessage()
+      void sendMessage()
     }
   }
 

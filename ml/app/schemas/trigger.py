@@ -17,6 +17,14 @@ class TriggerInput(BaseModel):
     historical_zone_presence: float = 0.85
     time_since_event_seconds: int = 3600
     platform_activity_during_event: float = 0.7
+    plan_name: str = "basic"
+    season: str = "monsoon"
+    event_type: str = "Platform Outage"
+    plan_base_premium: float = 49.0
+    plan_max_payout: float = 1000.0
+    claimed_amount: float = 250.0
+    claimed_amount_ratio: float = 0.25
+    prior_rejections_90d: int = 0
     # Worker income profile
     worker_daily_orders: int = 15
     avg_income_per_order: float = 80.0

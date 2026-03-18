@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter
 from app.schemas.disruption import DisruptionInput, DisruptionOutput
 from app.services.disruption_model import assess_disruption
@@ -23,12 +24,12 @@ def detect_disruption(data: DisruptionInput):
 
 
 @router.get("/heatmap", tags=["City Risk"])
-def city_risk_heatmap(city: str = None):
+def city_risk_heatmap(city: Optional[str] = None):
     """AI City Risk Heatmap — composite risk scores for Indian metro cities."""
     return {"cities": get_heatmap_data(city)}
 
 
 @router.get("/correlations", tags=["Insights"])
-def disruption_correlations(factor: str = None):
+def disruption_correlations(factor: Optional[str] = None):
     """AI Disruption Correlation Engine — env factor → income impact insights."""
     return {"insights": get_insights(factor)}

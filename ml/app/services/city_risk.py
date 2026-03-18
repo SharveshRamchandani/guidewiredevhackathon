@@ -4,6 +4,7 @@ City profiles sourced from IMD historical climate data and CPCB AQI records.
 Correlation insights derived from real disruption-event research in India.
 """
 
+from typing import Optional
 # -----------------------------------------------------------------------
 # City Risk Heatmap
 # -----------------------------------------------------------------------
@@ -19,12 +20,13 @@ CITY_PROFILES = {
 }
 
 
-def get_heatmap_data(city: str = None) -> list:
+def get_heatmap_data(city: Optional[str] = None) -> list:
     result = []
     for name, p in CITY_PROFILES.items():
-        if city and city.lower() not in name.lower():
+        if city and str(city).lower() not in name.lower():
             continue
-        composite = round(0.35 * p["flood"] + 0.30 * p["heat"] + 0.20 * p["aqi"] + 0.15 * p["claims"], 4)
+        raw = 0.35 * float(p["flood"]) + 0.30 * float(p["heat"]) + 0.20 * float(p["aqi"]) + 0.15 * float(p["claims"])
+        composite: float = round(raw, 4)  # type: ignore[call-overload]
         result.append({
             "city": name, "lat": p["lat"], "lon": p["lon"],
             "composite_risk_score": composite,
@@ -48,7 +50,8 @@ CORRELATION_INSIGHTS = [
 ]
 
 
-def get_insights(factor: str = None) -> list:
-    if factor:
-        return [i for i in CORRELATION_INSIGHTS if factor.lower() in i["factor"].lower()]
+def get_insights(factor: Optional[str] = None) -> list:
+    if factor is not None:
+        factor_str = str(factor).lower()
+        return [i for i in CORRELATION_INSIGHTS if factor_str in str(i["factor"]).lower()]
     return CORRELATION_INSIGHTS

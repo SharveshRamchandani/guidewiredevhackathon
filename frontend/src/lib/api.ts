@@ -222,6 +222,30 @@ export const paymentApi = {
         }>(`/api/payment/verify/${txnId}`),
 };
 
+export const chatApi = {
+    sendMessage: (payload: {
+        message: string;
+        context?: {
+            role?: 'worker' | 'admin' | 'super_admin' | 'guest';
+            page?: string;
+        };
+    }) =>
+        apiFetch<{
+            success: boolean;
+            data: {
+                reply: string;
+                context: {
+                    role: string;
+                    page: string | null;
+                };
+                timestamp: string;
+            };
+        }>(
+            '/api/chat/message',
+            { method: 'POST', body: JSON.stringify(payload) }
+        ),
+};
+
 // ─── Admin Auth ───────────────────────────────────────────────────────────────
 
 export const adminApi = {

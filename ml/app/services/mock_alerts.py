@@ -11,7 +11,4 @@ def get_mock_alerts(zone_id: str) -> dict:
         "threshold_breached": threshold_breached,
         "severity": severity,
         "trigger_type": alert_type
-    }
-
-
-    
+    }

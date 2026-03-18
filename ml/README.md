@@ -13,13 +13,13 @@ No auth on any endpoint — this service is internal only.
 | Endpoint | Method | What it returns |
 |---|---|---|
 | `/health` | GET | Basic `{ "status": "ok" }` health check for container liveness. |
-| `/ml/risk-score` | POST | Risk label (low/med/high), suggested minimum weekly premium, and the top 3 risk factors explicitly dynamically derived from `RandomForestClassifier.feature_importances_`. |
-| `/ml/fraud-score` | POST | Continuous fraud probability score [0.0 - 1.0] bounded via `score_samples()` + discrete "auto_approve / manual_review / auto_reject" decision logic based on heuristic overrides. |
+| `/ml/risk-score` | POST | Plan-aware worker risk label and score using a Random Forest bundle, plus the top 3 aggregated risk factors and reference pricing signals used for downstream quoting. |
+| `/ml/fraud-score` | POST | Continuous fraud probability score [0.0 - 1.0] from a richer Isolation Forest bundle using claim behavior, plan context, claimed amount, and prior rejection signals. |
 | `/ml/disruption-score` | POST | Multi-factor weighted probability index of a climate event. Also includes `disruption_confidence`, a mathematically calibrated margin-distance index [0.0 - 1.0] from the decision boundary. |
 | `/ml/income-loss` | POST | Estimated INR income loss during a disruption mapped to standard Indian delivery market impact models (e.g. 70% drop during floods). |
 | `/ml/income-shock` | POST | Detects localized sudden anomalous drops in a specific worker's earnings using a dynamically inline-fitted Isolation Forest that treats the worker's own last week as the baseline. |
 | `/ml/vulnerability-score` | POST | 0–1 Worker vulnerability index weighting geographical risk, historical disruption counts, weekly working intensity (hours), and earnings fragility (INR/day). |
-| `/ml/premium` | POST | Dynamic weekly premium generator using 3-factor multiplicative pricing based on local climate hazards, absolute disruption risk, and individual vulnerability. |
+| `/ml/premium` | POST | Plan-aware dynamic weekly premium generator. Uses DB-backed plan values as anchors and applies bounded multipliers for risk, climate, disruption pressure, vulnerability, and coverage richness. |
 | `/ml/trigger` | POST | **Core engine**. Orchestrates all microservices: parses weather variables -> bounds probabilities -> calculates dynamic thresholds -> flags/clears fraud -> generates Llama 3 explanation -> returns fully modeled parametric approval struct. |
 | `/ml/heatmap` | GET | Composite multi-factor risk scores and IMD hazard data aggregated for 8 major Indian metro cities. |
 | `/ml/correlations` | GET | Returns static researched insights mapping specific environmental thresholds (e.g., AQI > 400) to actual historic gig-economy demand drop percentages. |
@@ -132,11 +132,11 @@ Swagger API documentation UI will be available natively at `http://localhost:800
 GigShield incorporates key AI production reliability design patterns. It handles real world data-drifts and probabilistic edge cases using the following implemented approaches:
 
 1. **Probability Calibration (Disruption Model):** Machine learning probabilities near `50%` are inherently dangerous for automated programmatic APIs. Instead of sending out raw triggers around this threshold, the disruption model maps its internal array weights to a globally calibrated `disruption_confidence` score by actively computing the Euclidean output distance from the decision boundary `[min(max(abs(prob - 0.5) * 2, 0.0), 1.0)]`. 
-2. **Exposed Feature Importances (Risk Model):** Inference via the Random Forest risk scorer does not just act as a black box. The `/risk-score` endpoint actively reads the stored `model.feature_importances_` parameter matrix natively from sklearn, ranks it, and returns `top_risk_factors` per-request via API so consumers can explicitly explain the risk.
+2. **Exposed Feature Importances (Risk Model):** Inference via the Random Forest risk scorer does not just act as a black box. The `/risk-score` endpoint returns aggregated `top_risk_factors` per-request so consumers can explicitly explain the risk. It also returns reference premium/coverage hints, but final product pricing is owned by `/ml/premium`.
 3. **Continuous Probability Mapping (Fraud Model):** An `IsolationForest` predicts abstract anomaly indices (from `score_samples`) containing negative floats. We map claims predictably to a bounded `[0.0, 0.45]` positive percentage float index so continuous fraud probability reflects an easily displayable heuristic, rather than forcing UI consumers to parse abstract negative dimensional spaces.
 4. **Adaptive Context-Aware Fraud Thresholds:** The core trigger leverages an intelligent macro-aware heuristic boundary: 
-   - Normal Disruption (`< 70%` probability) → Standard fraud review trigger blocks at `0.30` score.
-   - Extreme Disaster (`> 70%` probability) → At scale, workers are phenomenally less likely to be spoofing GPS when fleeing severe floods/storms. The engine catches this and dynamically relaxes the fraud review threshold to `0.50`, allowing massive scale parametric auto-approvals for genuine claims far faster without manual bottlenecks.
+   - Normal Disruption (`< 70%` probability) → Standard fraud review trigger blocks at `0.40` score.
+   - Extreme Disaster (`> 70%` probability) → The engine relaxes the review threshold to `0.55`, allowing more genuine claims to auto-approve during severe events without weakening hard fraud rejection rules.
 5. **Inline Unsupervised Anomaly Detection:** The `/ml/income-shock` module does not rely on global, pre-trained `.joblib` files. Instead, it literally instantiates and geometrically fits a unique, bespoke `IsolationForest` synchronously during the API request natively mapped using the exact sequence arrays of the worker's own historical `daily_earnings`. It scores the past 3 days against the worker's unique timeline baseline, removing the need for a global macro training set.
 
 ---
@@ -290,3 +290,241 @@ Uses the heavily optimized **Groq API** inference layer executing the LLM basepl
 | **Payload Data Verification** | Typed enforcement exclusively mapped using Python runtime typehinting bridged to Pydantic v2 schemas. |
 | **Artifact State File Formatting** | Standardized `joblib` dumps mapping pickled memory matrix weights natively onto disk. |
 | **Environment Variable Management** | Handled transparently by `pydantic-settings`. |
+
+---
+
+## Swagger Smoke Tests
+
+These sample requests were validated against the current local ML service and can
+be pasted directly into Swagger at `http://localhost:8000/docs`.
+
+### POST `/ml/risk-score`
+
+Request:
+
+```json
+{
+  "worker_id": "W_TEST_001",
+  "zone_id": "Z_DEL_001",
+  "platform": "Swiggy",
+  "months_active": 9,
+  "avg_daily_hours": 8.5,
+  "past_claims_count": 2,
+  "zone_flood_risk": 0.32,
+  "zone_heat_risk": 0.88,
+  "plan_base_premium": 79,
+  "plan_max_payout": 2000,
+  "covered_event_count": 6,
+  "avg_copay": 0.1
+}
+```
+
+Response:
+
+```json
+{
+  "risk_score": 0.9211,
+  "risk_label": "medium",
+  "risk_adjusted_reference_premium": 88.13,
+  "reference_coverage_amount": 2000,
+  "top_risk_factors": [
+    "months_active",
+    "avg_daily_hours",
+    "past_claims_count"
+  ]
+}
+```
+
+### POST `/ml/premium`
+
+Request:
+
+```json
+{
+  "worker_id": "W_TEST_001",
+  "plan_name": "standard",
+  "plan_base_premium": 79,
+  "plan_max_payout": 2000,
+  "covered_event_count": 6,
+  "avg_copay": 0.1,
+  "risk_label": "medium",
+  "risk_score": 0.72,
+  "city_climate_risk": 0.55,
+  "disruption_probability": 0.55,
+  "vulnerability_score": 0.12
+}
+```
+
+Response:
+
+```json
+{
+  "worker_id": "W_TEST_001",
+  "weekly_premium_inr": 95,
+  "coverage_amount_inr": 2069.6,
+  "pricing_tier": "Flex Shield",
+  "breakdown": {
+    "plan_name": "standard",
+    "base_premium": 79,
+    "risk_multiplier": 1.0596,
+    "climate_multiplier": 1.099,
+    "disruption_multiplier": 1.066,
+    "vulnerability_multiplier": 1.0096,
+    "coverage_richness_multiplier": 1.13,
+    "price_floor": 65,
+    "price_ceiling": 95,
+    "avg_copay": 0.1,
+    "covered_event_count": 6,
+    "raw_premium_before_guardrails": 111.88
+  }
+}
+```
+
+### POST `/ml/fraud-score`
+
+Normal claim request:
+
+```json
+{
+  "claim_id": "CLM_TEST_001",
+  "worker_id": "W_TEST_001",
+  "gps_zone_match": true,
+  "claim_velocity_7d": 1,
+  "historical_zone_presence": 0.84,
+  "time_since_event_seconds": 6400,
+  "platform_activity_during_event": 0.78,
+  "plan_name": "standard",
+  "season": "monsoon",
+  "event_type": "Heavy Rain",
+  "plan_base_premium": 79,
+  "plan_max_payout": 2000,
+  "claimed_amount": 520,
+  "claimed_amount_ratio": 0.26,
+  "prior_rejections_90d": 0
+}
+```
+
+Normal claim response:
+
+```json
+{
+  "fraud_score": 0.45,
+  "decision": "manual_review",
+  "reason": "Moderate risk: anomaly flagged for review"
+}
+```
+
+Suspicious claim request:
+
+```json
+{
+  "claim_id": "CLM_TEST_002",
+  "worker_id": "W_TEST_001",
+  "gps_zone_match": false,
+  "claim_velocity_7d": 7,
+  "historical_zone_presence": 0.12,
+  "time_since_event_seconds": 90,
+  "platform_activity_during_event": 0.05,
+  "plan_name": "premium",
+  "season": "festival",
+  "event_type": "Platform Outage",
+  "plan_base_premium": 99,
+  "plan_max_payout": 3500,
+  "claimed_amount": 3200,
+  "claimed_amount_ratio": 0.91,
+  "prior_rejections_90d": 3
+}
+```
+
+Suspicious claim response:
+
+```json
+{
+  "fraud_score": 0.85,
+  "decision": "auto_reject",
+  "reason": "High fraud probability: GPS zone mismatch, High claim velocity (7 claims in 7 days), Claim filed within 5 min of event, Very low platform activity during event, Claim amount near policy maximum, Repeated recent rejections"
+}
+```
+
+### POST `/ml/trigger`
+
+Request:
+
+```json
+{
+  "worker_id": "W_TEST_001",
+  "zone_id": "Z_DEL_001",
+  "policy_id": "POL_TEST_001",
+  "temperature_celsius": 44,
+  "rainfall_mm": 4,
+  "aqi_score": 355,
+  "wind_speed_kmh": 9,
+  "gps_zone_match": true,
+  "claim_velocity_7d": 1,
+  "historical_zone_presence": 0.84,
+  "time_since_event_seconds": 4200,
+  "platform_activity_during_event": 0.74,
+  "plan_name": "standard",
+  "season": "summer",
+  "event_type": "Poor AQI",
+  "plan_base_premium": 79,
+  "plan_max_payout": 2000,
+  "claimed_amount": 600,
+  "claimed_amount_ratio": 0.3,
+  "prior_rejections_90d": 0,
+  "worker_daily_orders": 15,
+  "avg_income_per_order": 80,
+  "risk_label": "medium"
+}
+```
+
+Response:
+
+```json
+{
+  "worker_id": "W_TEST_001",
+  "policy_id": "POL_TEST_001",
+  "zone_id": "Z_DEL_001",
+  "payout_triggered": false,
+  "payout_amount_inr": 0,
+  "disruption_probability": 0.3925,
+  "disruption_confidence": 0.215,
+  "disruption_type": "compound",
+  "fraud_score": 0.45,
+  "fraud_cleared": true,
+  "expected_income_loss_inr": 2802.45,
+  "decision_reason": "Manual review required. Disruption confirmed (39%), but fraud score 0.45 exceeds review threshold (0.40) for this disruption level.",
+  "ai_explanation": "This report details the decision made regarding a claim filed by a GigShield policyholder. The claim was flagged for manual review due to a compound disruption type, which was detected at a disruption probability of 39%. The weather conditions at the time of disruption included a temperature of 44.0C and rainfall of 4.0 mm, with an Air Quality Index (AQI) of 355, indicating poor air quality. Despite the disruption probability confirming a disruption, the fraud score of 0.45 out of 1.0 exceeded the review threshold for this disruption level, resulting in no payout being issued, with an estimated income loss of Rs.2802.45.",
+  "model_metadata": {
+    "risk_model": {
+      "algorithm": "RandomForestClassifier",
+      "overall_accuracy": 0.914,
+      "class_f1": {
+        "low": 0.8944,
+        "medium": 0.919,
+        "high": 0.9388
+      },
+      "top_features": [
+        "months_active",
+        "avg_daily_hours",
+        "past_claims_count"
+      ],
+      "training_samples": 4000,
+      "trained_at": "2026-03-17T08:58:52Z",
+      "sklearn_version": "1.8.0"
+    },
+    "fraud_model": {
+      "algorithm": "IsolationForest",
+      "type": "unsupervised_anomaly_detection",
+      "overall_accuracy": 0.9844,
+      "fraud_recall": 0.922,
+      "fraud_precision": 0.922,
+      "fraud_f1": 0.922,
+      "training_samples": 5000,
+      "trained_at": "2026-03-17T08:59:09Z",
+      "sklearn_version": "1.8.0"
+    }
+  },
+  "status": "pending_review"
+}
+```
