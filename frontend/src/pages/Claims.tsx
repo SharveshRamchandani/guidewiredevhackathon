@@ -161,10 +161,10 @@ const Claims = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Fraud Score</span>
                     <Badge variant="outline">
-                      {(selectedClaim.fraud_score ?? 0) < 30 ? "Low" : (selectedClaim.fraud_score ?? 0) < 60 ? "Medium" : "High"}
+                      {(selectedClaim.fraud_score ?? 0) < 0.30 ? "Low" : (selectedClaim.fraud_score ?? 0) <= 0.60 ? "Medium" : "High"}
                     </Badge>
                   </div>
-                  <Progress value={selectedClaim.fraud_score ?? 0} className="h-2" />
+                  <Progress value={(selectedClaim.fraud_score ?? 0) * 100} className="h-2" />
                 </div>
               </div>
             )}

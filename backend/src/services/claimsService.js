@@ -32,6 +32,37 @@ async function initiateClaimAuto({ workerId, policyId, eventId, type, descriptio
   // Normalise type to match schema CHECK constraint
   const claimType = normaliseClaimType(type);
 
+  // Prevent duplicate open claims for the same disruption context
+  const duplicateParams = [workerId, policyId, claimType];
+  let duplicateSql = `
+    SELECT id, claim_number, status
+    FROM claims
+    WHERE worker_id = $1
+      AND policy_id = $2
+      AND type = $3
+      AND status IN ('pending', 'approved')`;
+
+  if (eventId) {
+    duplicateParams.push(eventId);
+    duplicateSql += ` AND event_id = $4`;
+  } else {
+    duplicateSql += ` AND event_id IS NULL`;
+  }
+
+  duplicateSql += `
+    ORDER BY created_at DESC
+    LIMIT 1`;
+
+  const { rows: existingClaims } = await query(duplicateSql, duplicateParams);
+  if (existingClaims.length) {
+    const existing = existingClaims[0];
+    const err = new Error(
+      `Duplicate claim detected. Existing ${existing.status} claim ${existing.claim_number || existing.id} already covers this event.`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
   // Fraud check payload
   const velocityResult = await query(
     `SELECT COUNT(*) AS cnt FROM claims

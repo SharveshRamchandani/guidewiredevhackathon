@@ -74,11 +74,11 @@ This is the **data layer** for GigShield - an income protection insurance platfo
   - `id` (UUID): Primary Key.
   - `policy_number` (VARCHAR): E.g., POL-2026-0847.
   - `worker_id` / `plan_id` (UUID): Who holds the policy and which plan.
-  - `premium` (NUMERIC): Policy cost.
-  - `max_coverage` (NUMERIC): Maximum payout overall.
+  - `premium` (NUMERIC): Weekly policy cost.
+  - `max_coverage` (NUMERIC): Maximum payout per claim.
   - `status` (VARCHAR): 'active', 'expired', 'cancelled'.
   - `auto_renew` (BOOLEAN): Auto-renewal status.
-  - `start_date` / `end_date` (DATE): Policy duration.
+  - `start_date` / `end_date` (DATE): 7-day policy term.
   - `coverage_snapshot` (JSONB): Coverage rules applied.
   - `created_at` / `updated_at` (TIMESTAMPTZ): Timestamps.
 
@@ -102,7 +102,7 @@ This is the **data layer** for GigShield - an income protection insurance platfo
   - `amount` (NUMERIC): Requested compensation.
   - `approved_amount` (NUMERIC): Sanctioned compensation.
   - `status` (VARCHAR): 'pending', 'approved', 'rejected'.
-  - `fraud_score` (NUMERIC): Likelihood of fraud (0-100).
+  - `fraud_score` (NUMERIC): Likelihood of fraud on a 0.0-1.0 scale.
   - `gps_match` (BOOLEAN): Worker GPS matching zone.
   - `velocity` (NUMERIC): Daily claim frequency.
   - `rejection_reason` (TEXT): Details on rejection.
