@@ -189,7 +189,7 @@ Redis
 
 - Plans are fetched publicly from `/api/policy/plans`.
 - Quote and policy APIs combine worker inputs, plan metadata, and ML risk or premium signals.
-- Policies are stored in PostgreSQL with a coverage snapshot for historical integrity.
+- Policies are stored in PostgreSQL with a weekly 7-day term and a coverage snapshot for historical integrity.
 
 ### 3. Trigger and claims flow
 
@@ -332,7 +332,7 @@ Important schema-level concepts:
 - UUID primary keys are used throughout the relational model.
 - Workers are tied to city and zone geography.
 - Plans store weekly premium, max coverage, and JSON coverage definitions.
-- Policies snapshot coverage at purchase time.
+- Policies snapshot coverage at purchase time and are issued on a 7-day term.
 - Claims reference workers, policies, and optionally disruption events.
 - Payouts reference approved claims and worker payout identifiers.
 - `system_config` drives trigger engine behavior.
