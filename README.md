@@ -701,6 +701,125 @@ Recommended manual smoke test flow:
 7. inspect dashboard, claims queue, and notifications
 8. hit ML docs and backend health endpoints
 
+## Market Crash Scenario Solution:
+## Adversarial Defense & Anti-Spoofing Strategy
+
+GigShield’s anti-spoofing approach is based on one core principle: a payout-triggering event should never rely on raw GPS alone. Instead, the platform treats a claim as valid only when location, behavioral, environmental, and device-level signals form a consistent real-world story. The system is designed to distinguish a genuinely stranded delivery partner from a coordinated fraud ring by scoring "context integrity" rather than just "presence in a risk zone."
+
+### 1. The Differentiation
+
+To separate a real stranded worker from a GPS-spoofing attacker, the AI/ML layer evaluates whether the worker’s activity pattern matches how a delivery partner would actually behave during a disruption.
+
+A genuine stranded worker typically shows:
+- Normal pre-event work behavior before the disruption, such as active sessions, recent trip movement, and expected zone transitions
+- A realistic mobility slowdown or stop pattern consistent with severe weather, heat, flooding, or unsafe AQI conditions
+- Correlation between claimed disruption time and verified zone-level external alerts
+- Device and session continuity, meaning the same device, same account, same route pattern, and no abrupt environment change
+- Individual claim timing that aligns with the worker’s historical operating geography and usual working hours
+
+A spoofing actor typically shows:
+- Sudden impossible relocation into a red-alert zone without natural travel history leading into that area
+- Stationary or inconsistent telemetry that looks like "device at home, GPS in danger zone"
+- Repeated high-risk claim timing clustered across many accounts in the same area within a short time window
+- Shared behavioral fingerprints across multiple accounts, suggesting coordinated fraud
+- Device, network, or account anomalies that break the worker’s normal operating pattern
+
+The fraud model should therefore use a multi-signal risk score combining:
+- location consistency
+- movement plausibility
+- device trust
+- network integrity
+- historical worker behavior
+- ring/cohort anomaly detection
+- event-to-claim timing consistency
+
+Claims are auto-approved only when disruption eligibility and anti-spoof confidence are both strong. If the event is valid but spoof-risk is high, the claim is routed to review instead of immediate payout.
+
+### 2. The Data
+
+Beyond basic GPS coordinates, the platform should analyze the following data points:
+
+#### Mobility and route plausibility
+- Speed, acceleration, and stop/start patterns
+- Path continuity over time, not just final coordinates
+- Entry history into the affected zone
+- Distance jump anomalies, such as impossible teleportation between locations
+- Historical operating zones and common delivery corridors for that worker
+
+#### Device integrity signals
+- Device ID consistency across sessions
+- App version, OS version, and device fingerprint stability
+- Detection of mock location settings or developer-mode risk flags where available
+- Sensor consistency checks between GPS, network location, and device motion patterns
+- Frequency of SIM/device/account changes
+
+#### Network and session intelligence
+- IP geolocation versus claimed GPS zone
+- Rapid IP switching or suspicious proxy/VPN patterns
+- Session continuity before, during, and after the event
+- Login/logout bursts across multiple suspicious accounts
+- Shared network fingerprints across clusters of accounts
+
+#### Work-pattern and account behavior
+- Recent order activity or work session presence before disruption
+- Historical working hours and city/zone patterns
+- Claim frequency, approval history, and prior fraud flags
+- Whether the worker typically operates in the claimed zone or has suddenly appeared there only during payout-triggering events
+- Time gap between event onset and user/app behavior
+
+#### Environmental and event corroboration
+- Hyperlocal weather severity confirmation
+- AQI/heat alerts by zone and timestamp
+- Platform outage or service disruption feeds
+- Density of affected legitimate workers in the same geography
+- Whether claim timing aligns with a real trigger window or appears artificially synchronized
+
+#### Coordinated fraud ring indicators
+- Multiple accounts claiming from the same suspicious device/network cluster
+- Synchronized claim submissions within narrow time bands
+- Similar route anomalies across many workers
+- Shared payout endpoints, device reuse, or repeated beneficiary patterns
+- Community-level anomaly spikes in one zone that exceed expected worker density and disruption impact
+
+This allows the system to move from simple fraud scoring to coordinated adversarial detection. In practice, the architecture should support both:
+- per-claim fraud scoring
+- graph-based ring detection across accounts, devices, IPs, payout handles, and timing patterns
+
+### 3. The UX Balance
+
+The workflow should not punish honest gig workers simply because weather conditions cause weak connectivity, delayed telemetry, or incomplete app signals. The design principle is "friction only when risk is high, and even then, explainable friction."
+
+#### Proposed claim handling workflow
+- Low spoof-risk + verified disruption: auto-initiate and fast-track payout
+- Medium spoof-risk: place in pending review, request passive re-verification, and preserve claim priority
+- High spoof-risk or coordinated ring indicators: hold payout, escalate to fraud review, and link to cluster investigation
+
+#### Fairness safeguards for genuine workers
+- Never reject solely because of one missing signal, such as a temporary network drop
+- Use fallback evidence, such as prior route continuity, device history, and zone-level event verification
+- Give the worker a simple explanation that the claim is under verification due to unusual signal mismatch
+- Allow lightweight in-app confirmation steps instead of forcing heavy documentation for every flagged case
+- Maintain SLA-based review queues so honest workers are not trapped in indefinite manual review
+
+#### Worker-friendly re-verification examples
+- Passive re-check of device/session continuity
+- Short in-app presence confirmation when connectivity returns
+- Recent route/activity replay from already captured telemetry
+- Admin-assisted review only when automated confidence remains low
+
+This preserves trust: genuine workers still get fast support during real disruptions, while bad actors face progressively stronger scrutiny.
+
+### Architectural direction
+
+
+1. Trigger engine detects disruption eligibility by zone
+2. Anti-spoofing engine computes context-integrity and fraud-risk scores
+3. Ring detection checks for coordinated anomalies across workers/devices/networks
+4. Decision layer classifies claims into auto-approve, review, or hold
+5. Human review is reserved for ambiguous or adversarial cases, not normal claims
+
+
+
 ## Known Constraints And Notes
 
 - This is a hackathon repository, so some areas mix polished flows with prototype shortcuts.
