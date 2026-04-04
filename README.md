@@ -1,6 +1,6 @@
-# GigShield
+# Kintsu
 
-GigShield is a full-stack hackathon project for AI-assisted parametric insurance tailored to gig workers in India. It combines a React worker/admin portal, a Node.js orchestration backend, a Python FastAPI ML service, PostgreSQL for durable state, and Redis for caching, sessions, queues, and notifications.
+Kintsu is a full-stack hackathon project for AI-assisted parametric insurance tailored to gig workers in India. It combines a React worker/admin portal, a Node.js orchestration backend, a Python FastAPI ML service, PostgreSQL for durable state, and Redis for caching, sessions, queues, and notifications.
 
 The project models a simple but ambitious product story:
 
@@ -33,7 +33,7 @@ The project models a simple but ambitious product story:
 
 ## Project Overview
 
-GigShield is organized as a multi-service monorepo:
+Kintsu is organized as a multi-service monorepo:
 
 - `frontend/`: React + Vite single-page application for workers, admins, and super admins.
 - `backend/`: Express API and orchestration service responsible for auth, policy flows, claims, payouts, admin workflows, cron jobs, and internal integrations.
@@ -348,7 +348,7 @@ The repo does not provide a single canonical root `.env.example`, so local setup
 Common backend variables inferred from the code:
 
 ```env
-DATABASE_URL=postgres://postgres:password@localhost:5432/gigshield
+DATABASE_URL=postgres://postgres:password@localhost:5432/Kintsu
 REDIS_URL=redis://localhost:6379
 NODE_ENV=development
 PORT=5000
@@ -374,9 +374,9 @@ FEATURE_TOTP_ENABLED=false
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-SUPER_ADMIN_EMAIL=superadmin@gigshield.in
-SUPER_ADMIN_PASSWORD=GigShield@SuperAdmin#2026
-SUPER_ADMIN_NAME=GigShield Platform Owner
+SUPER_ADMIN_EMAIL=superadmin@Kintsu.in
+SUPER_ADMIN_PASSWORD=Kintsu@SuperAdmin#2026
+SUPER_ADMIN_NAME=Kintsu Platform Owner
 ADMIN_SETUP_TOKEN_EXPIRY_HOURS=24
 
 GROQ_CHAT_MODEL=llama-3.1-8b-instant
@@ -446,7 +446,7 @@ What it does:
 
 - finds a local PostgreSQL install
 - validates connectivity
-- creates the `gigshield` database if missing
+- creates the `Kintsu` database if missing
 - applies `db/schema.sql`
 - applies `db/migrate.sql`
 - prints local admin credentials
@@ -454,9 +454,9 @@ What it does:
 Manual alternative:
 
 ```powershell
-psql -U postgres -c "CREATE DATABASE gigshield"
-psql -U postgres -d gigshield -f db\schema.sql
-psql -U postgres -d gigshield -f db\migrate.sql
+psql -U postgres -c "CREATE DATABASE Kintsu"
+psql -U postgres -d Kintsu -f db\schema.sql
+psql -U postgres -d Kintsu -f db\migrate.sql
 node db\seed.js
 ```
 
@@ -704,7 +704,7 @@ Recommended manual smoke test flow:
 ## Market Crash Scenario Solution:
 ## Adversarial Defense & Anti-Spoofing Strategy
 
-GigShield’s anti-spoofing approach is based on one core principle: a payout-triggering event should never rely on raw GPS alone. Instead, the platform treats a claim as valid only when location, behavioral, environmental, and device-level signals form a consistent real-world story. The system is designed to distinguish a genuinely stranded delivery partner from a coordinated fraud ring by scoring "context integrity" rather than just "presence in a risk zone."
+Kintsu’s anti-spoofing approach is based on one core principle: a payout-triggering event should never rely on raw GPS alone. Instead, the platform treats a claim as valid only when location, behavioral, environmental, and device-level signals form a consistent real-world story. The system is designed to distinguish a genuinely stranded delivery partner from a coordinated fraud ring by scoring "context integrity" rather than just "presence in a risk zone."
 
 ### 1. The Differentiation
 
