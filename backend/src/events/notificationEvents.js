@@ -125,6 +125,20 @@ eventBus.on('payout:completed', async ({ workerId, amount }) => {
   );
 });
 
+// payout:upi_risk_locked  { workerId, claimId, lockedUntil?, reason? }
+eventBus.on('payout:upi_risk_locked', async ({ workerId, claimId, lockedUntil, reason }) => {
+  await notificationService.pushNotification(
+    workerId, 'worker',
+    `Payout for claim ${claimId} is paused by UPI Risk Lock until ${lockedUntil || 'the verification window ends'}. ${reason || 'Recent payout account change detected.'}`,
+    'warning'
+  );
+  await notificationService.pushNotification(
+    'all_admins', 'admin',
+    `UPI Risk Lock paused payout for worker ${workerId}, claim ${claimId}.`,
+    'warning'
+  );
+});
+
 // Alias used by rbaService.processWeatherPayout
 eventBus.on('payout:auto_approved', async ({ workerId, amount, zone, reason }) => {
   await notificationService.pushNotification(
@@ -152,12 +166,14 @@ eventBus.on('profile:updated', async ({ workerId }) => {
   );
 });
 
-// profile:bank_updated  { workerId }
-eventBus.on('profile:bank_updated', async ({ workerId }) => {
+// profile:bank_updated  { workerId, riskLocked?, lockedUntil? }
+eventBus.on('profile:bank_updated', async ({ workerId, riskLocked, lockedUntil }) => {
   await notificationService.pushNotification(
     workerId, 'worker',
-    'Your payout bank account has been updated.',
-    'info'
+    riskLocked
+      ? `Your payout UPI was updated. For security, payouts are temporarily locked until ${lockedUntil || 'the verification window ends'}.`
+      : 'Your payout bank account has been updated.',
+    riskLocked ? 'warning' : 'info'
   );
 });
 

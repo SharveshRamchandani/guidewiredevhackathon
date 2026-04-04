@@ -112,6 +112,23 @@ export const workerApi = {
     getProfile: (token: string) =>
         apiFetch<{ success: boolean; data: Record<string, unknown> }>('/api/profile', {}, token),
 
+    updateProfile: (
+        token: string,
+        data: { name?: string; city?: string; platform?: string; avg_weekly_earning?: number }
+    ) =>
+        apiFetch<{ success: boolean; message: string; data: Record<string, unknown> }>(
+            '/api/profile',
+            { method: 'PATCH', body: JSON.stringify(data) },
+            token
+        ),
+
+    updateUpi: (token: string, upi: string) =>
+        apiFetch<{ success: boolean; message: string; data: Record<string, unknown> }>(
+            '/api/profile/bank',
+            { method: 'PATCH', body: JSON.stringify({ upi }) },
+            token
+        ),
+
     getMyPayouts: (token: string) =>
         apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>('/api/payouts/my', {}, token),
 };

@@ -7,6 +7,7 @@ The project models a simple but ambitious product story:
 - Workers onboard with phone-based OTP and choose a protection plan.
 - Environmental and operational disruptions such as heavy rain, poor AQI, heatwaves, and platform outages are monitored per zone.
 - Claims can be auto-initiated, fraud-scored, reviewed, and routed to simulated UPI payouts.
+- UPI payout changes are protected by a **UPI Risk Lock** that temporarily pauses payouts after suspicious payout-address updates.
 - Admins and super admins manage workers, claims, policies, staff access, analytics, settings, and notifications.
 
 ## Table Of Contents
@@ -48,6 +49,7 @@ The codebase is clearly hackathon-driven but it is more than a landing page demo
 - Worker OTP onboarding and profile completion.
 - Plan discovery, quote generation, and policy purchase/renewal APIs.
 - Worker dashboard with policy, earnings, claims, payouts, and weather risk context.
+- UPI Risk Lock on worker profile updates: if the payout UPI changes near approved claims or in-flight payouts, payouts are paused for a configurable cooldown window and both worker/admin notifications are generated.
 - Admin dashboard with KPIs, claim queues, policy and worker management, analytics, and configuration.
 - Super admin controls for staff provisioning, activation/deactivation, platform stats, and audit log access.
 - Internal ML service for:
@@ -206,11 +208,25 @@ Redis
 ### 4. Payout flow
 
 - Approved claims create or reuse payout records.
+- Before payout creation or manual payout initiation, the backend checks UPI Risk Lock status.
+- If the worker recently changed UPI in a risky context, payout is blocked with `UPI_RISK_LOCKED`, and worker/admin warning notifications are emitted.
 - Payout IDs are pushed to the Redis payout queue.
 - A cron job processes the queue every 30 seconds.
 - Razorpay-like payout responses are simulated and marked completed after a short delay.
 
-### 5. Admin and super admin operations
+### 5. UPI Risk Lock
+
+- Workers can update their payout UPI from the Profile page.
+- The backend computes a payout-address risk score using:
+  - whether the UPI actually changed
+  - approved claims in the last 48 hours
+  - payouts already in `pending` or `processing`
+  - repeated UPI changes within 72 hours
+- If risk is high, payouts are locked for `UPI_RISK_LOCK_HOURS` (default 24 hours).
+- Lock state is derived from existing `audit_logs` entries (`profile_upi_change` and `profile_upi_risk_lock`), so this feature does **not** require a DB schema change.
+- The Profile page shows a **UPI Risk Lock Active** banner with unlock time, risk score, reason, and previous UPI.
+
+### 6. Admin and super admin operations
 
 - Admins review claims, workers, policies, events, analytics, and config.
 - Super admins provision staff, manage staff lifecycle, inspect platform stats, and review audit logs.
@@ -286,6 +302,7 @@ Notable backend modules:
 - `services/policyService.js`: plan and policy logic
 - `services/claimsService.js`: fraud scoring, claim initiation, review, payout handoff
 - `services/payoutService.js`: payout simulation and queue processing
+- `services/upiRiskLockService.js`: payout-destination risk scoring and UPI lock enforcement without schema changes
 - `services/triggerService.js`: zone scans and disruption event creation
 - `services/notificationService.js`: Redis and in-memory notifications
 - `services/chatService.js`: Groq-backed or fallback chat responses
@@ -335,6 +352,7 @@ Important schema-level concepts:
 - Policies snapshot coverage at purchase time and are issued on a 7-day term.
 - Claims reference workers, policies, and optionally disruption events.
 - Payouts reference approved claims and worker payout identifiers.
+- `audit_logs` is also used as the UPI change trail and lock ledger, so payout-address risk can be enforced without adding new worker columns.
 - `system_config` drives trigger engine behavior.
 
 The repo also contains incremental SQL migrations in `db/migrations/`, plus `db/migrate.sql` for additional auth and seed-related schema updates used by the backend setup flow.
@@ -362,6 +380,7 @@ JWT_ADMIN_EXPIRES_IN=8h
 JWT_REGISTRATION_EXPIRES_IN=30m
 
 TRIGGER_CRON_INTERVAL=*/15 * * * *
+UPI_RISK_LOCK_HOURS=24
 
 OTP_EXPIRY_SECONDS=300
 OTP_RESEND_COOLDOWN_SECONDS=60
@@ -572,6 +591,9 @@ This is a condensed summary of the backend API shape. Exact validation rules liv
 - `PATCH /api/profile/bank`
 - `PATCH /api/profile/contact`
 
+`PATCH /api/profile/bank` returns `data.upi_lock` with `isLocked`, `lockedUntil`, `riskScore`, `reason`, and `previousUpiId`.
+`POST /api/payouts/initiate` may return HTTP `423` with `UPI_RISK_LOCKED` if a recent risky UPI change is still in its cooldown window.
+
 ### Admin and super admin
 
 - `POST /api/admin/auth/login`
@@ -616,7 +638,7 @@ Worker-side highlights:
 - dashboard with active policy summary and weather widget
 - policy and plans pages
 - claims and payouts tracking
-- profile management
+- profile management with **UPI Payout Security** controls and a visible **UPI Risk Lock** status banner
 - notifications page and slide-out panel
 
 Admin-side highlights:
@@ -675,6 +697,7 @@ Notification behavior:
 
 - notifications are stored per role and user
 - admin and super-admin group broadcasts are supported
+- UPI lock notifications alert workers when payout UPI changes trigger a temporary freeze, and alert admins when an approved claim payout is paused by lock policy.
 - Redis Pub/Sub is used when Redis is available
 - an in-memory fallback keeps the demo functional even if Redis is down
 

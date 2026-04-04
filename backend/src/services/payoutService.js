@@ -2,6 +2,7 @@ const { query }               = require('../config/db');
 const { dequeuePayout, invalidateDashboard } = require('../config/redis');
 const { v4: uuidv4 }          = require('uuid');
 const eventBus                = require('../events/eventBus'); // RBA event bus
+const { assertUpiNotLocked }  = require('./upiRiskLockService');
 
 // ─── Simulated Razorpay ───────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ function simulateRazorpay(amount, upi) {
 // ─── Initiate ─────────────────────────────────────────────────────────────────
 
 async function initiatePayout({ claimId, workerId }) {
+  await assertUpiNotLocked(workerId);
+
   // Verify approved claim
   const { rows: claims } = await query(
     `SELECT c.*, w.upi_id

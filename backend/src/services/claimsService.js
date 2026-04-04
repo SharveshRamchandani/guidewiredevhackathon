@@ -3,6 +3,7 @@ const { query }  = require('../config/db');
 const { enqueueClaim, enqueuePayout, invalidateDashboard } = require('../config/redis');
 const { PAYOUT_RATIOS } = require('./policyService');
 const eventBus   = require('../events/eventBus'); // RBA event bus
+const { assertUpiNotLocked } = require('./upiRiskLockService');
 
 // ML decision thresholds
 const AUTO_APPROVE_THRESHOLD = 0.40;
@@ -31,6 +32,37 @@ async function initiateClaimAuto({ workerId, policyId, eventId, type, descriptio
 
   // Normalise type to match schema CHECK constraint
   const claimType = normaliseClaimType(type);
+
+  // Prevent duplicate open claims for the same disruption context
+  const duplicateParams = [workerId, policyId, claimType];
+  let duplicateSql = `
+    SELECT id, claim_number, status
+    FROM claims
+    WHERE worker_id = $1
+      AND policy_id = $2
+      AND type = $3
+      AND status IN ('pending', 'approved')`;
+
+  if (eventId) {
+    duplicateParams.push(eventId);
+    duplicateSql += ` AND event_id = $4`;
+  } else {
+    duplicateSql += ` AND event_id IS NULL`;
+  }
+
+  duplicateSql += `
+    ORDER BY created_at DESC
+    LIMIT 1`;
+
+  const { rows: existingClaims } = await query(duplicateSql, duplicateParams);
+  if (existingClaims.length) {
+    const existing = existingClaims[0];
+    const err = new Error(
+      `Duplicate claim detected. Existing ${existing.status} claim ${existing.claim_number || existing.id} already covers this event.`
+    );
+    err.statusCode = 409;
+    throw err;
+  }
 
   // Fraud check payload
   const velocityResult = await query(
@@ -294,6 +326,8 @@ function deriveSeason(date = new Date()) {
  */
 async function triggerPayoutQueue(claim) {
   try {
+    await assertUpiNotLocked(claim.worker_id);
+
     const workerResult = await query('SELECT upi_id FROM workers WHERE id = $1', [claim.worker_id]);
     const upi = workerResult.rows[0]?.upi_id;
 
@@ -325,6 +359,14 @@ async function triggerPayoutQueue(claim) {
       await enqueuePayout(rows[0].id);
     }
   } catch (e) {
+    if (e.code === 'UPI_RISK_LOCKED') {
+      eventBus.emit('payout:upi_risk_locked', {
+        workerId: claim.worker_id,
+        claimId: claim.claim_number || claim.id,
+        lockedUntil: e.lockState?.lockedUntil,
+        reason: e.lockState?.reason,
+      });
+    }
     console.warn('[Claims] triggerPayoutQueue error:', e.message);
   }
 }

@@ -1,6 +1,7 @@
 const mlClient = require('../config/mlClient');
 const { query } = require('../config/db');
 const eventBus = require('../events/eventBus'); // RBA event bus
+const POLICY_TERM_DAYS = 7;
 
 // ─── Claim type → payout ratio (matching actual schema types) ─────────────────
 const PAYOUT_RATIOS = {
@@ -130,7 +131,7 @@ async function createPolicy({ workerId, planId, startDate, autoRenew = true }) {
   const quote = await generateQuote({ workerId, planId });
 
   const start = startDate || new Date().toISOString().split('T')[0];
-  const end = addDays(start, 30);
+  const end = addDays(start, POLICY_TERM_DAYS);
 
   // Generate policy_number
   const policyNumber = `POL-${new Date().getFullYear()}-${String(Date.now()).slice(-4).padStart(4, '0')}`;
@@ -205,7 +206,7 @@ async function getWorkerPolicies(workerId) {
         // Build a virtual active policy
         const start = workerRows[0].created_at ? new Date(workerRows[0].created_at).toISOString() : new Date().toISOString();
         const endD = new Date(start);
-        endD.setDate(endD.getDate() + 30); // 30 day policy
+        endD.setDate(endD.getDate() + POLICY_TERM_DAYS); // weekly policy term
         const end = endD.toISOString();
         
         return [{
@@ -243,7 +244,7 @@ async function renewPolicy(policyId, workerId) {
   }
 
   const newStart = addDays(policy.end_date, 1);
-  const newEnd = addDays(newStart, 30);
+  const newEnd = addDays(newStart, POLICY_TERM_DAYS);
   const quote = await generateQuote({ workerId, planId: policy.plan_id });
 
   const { rows } = await query(

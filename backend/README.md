@@ -186,10 +186,10 @@ POST /api/auth/register/complete
 |--------|-------|------|-------------|
 | GET | `/api/policy/plans` | ❌ | List all plans |
 | POST | `/api/policy/quote` | ✅ Worker | Get ML risk quote |
-| POST | `/api/policy/create` | ✅ Worker | Purchase policy |
+| POST | `/api/policy/create` | ✅ Worker | Purchase a 7-day weekly policy |
 | GET | `/api/policy/my` | ✅ Worker | My policies |
 | GET | `/api/policy/:id` | ✅ Worker | Policy detail |
-| POST | `/api/policy/:id/renew` | ✅ Worker | Renew policy |
+| POST | `/api/policy/:id/renew` | ✅ Worker | Renew for the next 7-day term |
 
 ### CLAIMS
 
@@ -266,6 +266,7 @@ The backend uses the schema from `db/schema.sql` + migrations from `db/migrate.s
 - All IDs are **UUIDs** (not integers)
 - Workers login by **phone** (not email)
 - `plans` table uses `weekly_premium` column (not `base_premium`)
+- policies are issued on a **7-day weekly term**
 - `claims.type` must be one of: `Heavy Rain`, `Poor AQI`, `Heatwave`, `Platform Outage`
 - `payouts.upi` is required (cannot be null)
 - `disruption_events.severity` is a text enum: `low/medium/high/critical`

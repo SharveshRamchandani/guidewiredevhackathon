@@ -114,7 +114,7 @@ const Dashboard = () => {
                   <div><span className="text-muted-foreground">Policy ID</span><p className="font-medium">{(activePolicy.policy_number as string) || "—"}</p></div>
                   <div><span className="text-muted-foreground">Plan</span><p className="font-medium capitalize">{(activePolicy.plan_name as string) || "—"}</p></div>
                   <div><span className="text-muted-foreground">Premium</span><p className="font-medium">₹{Number(activePolicy.premium || 0).toLocaleString("en-IN")}/week</p></div>
-                  <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹{Number(activePolicy.max_coverage || 0).toLocaleString("en-IN")}/week</p></div>
+                  <div><span className="text-muted-foreground">Max Coverage</span><p className="font-medium">₹{Number(activePolicy.max_coverage || 0).toLocaleString("en-IN")} per claim</p></div>
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">

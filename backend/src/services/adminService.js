@@ -24,7 +24,7 @@ async function getDashboardKpis() {
     query(`SELECT COUNT(*) AS total,
                   SUM(CASE WHEN status = 'pending'  THEN 1 ELSE 0 END) AS pending,
                   SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved,
-                  SUM(CASE WHEN fraud_score > 60    THEN 1 ELSE 0 END) AS fraud_flagged
+                  SUM(CASE WHEN fraud_score > 0.60  THEN 1 ELSE 0 END) AS fraud_flagged
            FROM claims`),
 
     query(`SELECT COALESCE(SUM(amount), 0) AS total_paid
@@ -266,9 +266,9 @@ async function getAnalytics() {
              LIMIT 6`),
 
       query(`SELECT
-               SUM(CASE WHEN fraud_score < 30  THEN 1 ELSE 0 END) AS low,
-               SUM(CASE WHEN fraud_score BETWEEN 30 AND 60 THEN 1 ELSE 0 END) AS medium,
-               SUM(CASE WHEN fraud_score > 60  THEN 1 ELSE 0 END) AS high
+               SUM(CASE WHEN fraud_score < 0.30 THEN 1 ELSE 0 END) AS low,
+               SUM(CASE WHEN fraud_score >= 0.30 AND fraud_score <= 0.60 THEN 1 ELSE 0 END) AS medium,
+               SUM(CASE WHEN fraud_score > 0.60 THEN 1 ELSE 0 END) AS high
              FROM claims`),
 
       query(`SELECT status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total

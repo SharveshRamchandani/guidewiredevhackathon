@@ -83,9 +83,9 @@ const AdminAnalytics = () => {
 
   const fraudDist = analytics.fraud_distribution || { low: 0, medium: 0, high: 0 };
   const fraudData = [
-    { name: "Low (<30)", value: Number(fraudDist.low || 0), fill: "hsl(142 76% 36%)" },
-    { name: "Medium (30-60)", value: Number(fraudDist.medium || 0), fill: "hsl(43 74% 66%)" },
-    { name: "High (>60)", value: Number(fraudDist.high || 0), fill: "hsl(0 84.2% 60.2%)" },
+    { name: "Low (<0.30)", value: Number(fraudDist.low || 0), fill: "hsl(142 76% 36%)" },
+    { name: "Medium (0.30-0.60)", value: Number(fraudDist.medium || 0), fill: "hsl(43 74% 66%)" },
+    { name: "High (>0.60)", value: Number(fraudDist.high || 0), fill: "hsl(0 84.2% 60.2%)" },
   ];
 
   return (
