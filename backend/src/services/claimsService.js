@@ -3,6 +3,7 @@ const { query }  = require('../config/db');
 const { enqueueClaim, enqueuePayout, invalidateDashboard } = require('../config/redis');
 const { PAYOUT_RATIOS } = require('./policyService');
 const eventBus   = require('../events/eventBus'); // RBA event bus
+const { assertUpiNotLocked } = require('./upiRiskLockService');
 
 // ML decision thresholds
 const AUTO_APPROVE_THRESHOLD = 0.40;
@@ -325,6 +326,8 @@ function deriveSeason(date = new Date()) {
  */
 async function triggerPayoutQueue(claim) {
   try {
+    await assertUpiNotLocked(claim.worker_id);
+
     const workerResult = await query('SELECT upi_id FROM workers WHERE id = $1', [claim.worker_id]);
     const upi = workerResult.rows[0]?.upi_id;
 
@@ -356,6 +359,14 @@ async function triggerPayoutQueue(claim) {
       await enqueuePayout(rows[0].id);
     }
   } catch (e) {
+    if (e.code === 'UPI_RISK_LOCKED') {
+      eventBus.emit('payout:upi_risk_locked', {
+        workerId: claim.worker_id,
+        claimId: claim.claim_number || claim.id,
+        lockedUntil: e.lockState?.lockedUntil,
+        reason: e.lockState?.reason,
+      });
+    }
     console.warn('[Claims] triggerPayoutQueue error:', e.message);
   }
 }

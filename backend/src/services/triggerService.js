@@ -10,29 +10,43 @@ const {
 
 // ─── ML Trigger calls (GET endpoints with ?zone_id= param) ───────────────────
 
-async function checkWeatherTrigger(zoneId) {
-  const cacheKey = `weather_${zoneId}`;
+async function checkWeatherTrigger(zone) {
+  const cacheKey = `weather_${zone.id}`;
   const cached   = await getWeather(cacheKey);
   if (cached) return cached;
 
-  const { data } = await mlClient.get(`/triggers/weather?zone_id=${zoneId}`);
+  const params = new URLSearchParams({
+    zone_id: String(zone.id),
+    city: String(zone.city_name || ''),
+  });
+
+  const { data } = await mlClient.get(`/triggers/weather?${params.toString()}`);
   await cacheWeather(cacheKey, data);
   return data;
 }
 
-async function checkAqiTrigger(zoneId) {
-  const cacheKey = `aqi_${zoneId}`;
+async function checkAqiTrigger(zone) {
+  const cacheKey = `aqi_${zone.id}`;
   const cached   = await getWeather(cacheKey);
   if (cached) return cached;
 
-  const { data } = await mlClient.get(`/triggers/aqi?zone_id=${zoneId}`);
+  const params = new URLSearchParams({
+    zone_id: String(zone.id),
+    city: String(zone.city_name || ''),
+  });
+
+  const { data } = await mlClient.get(`/triggers/aqi?${params.toString()}`);
   await cacheWeather(cacheKey, data);
   return data;
 }
 
-async function checkAlertTrigger(zoneId) {
+async function checkAlertTrigger(zone) {
   // Mock alerts aren't cached aggressively (they simulate live events)
-  const { data } = await mlClient.get(`/triggers/mock-alerts?zone_id=${zoneId}`);
+  const params = new URLSearchParams({
+    zone_id: String(zone.id),
+    city: String(zone.city_name || ''),
+  });
+  const { data } = await mlClient.get(`/triggers/mock-alerts?${params.toString()}`);
   return data;
 }
 
@@ -162,7 +176,9 @@ async function runAllTriggers() {
 
   // Fetch all zones (schema has no is_active column — use all)
   const { rows: zones } = await query(
-    'SELECT id, name, city_id FROM zones'
+    `SELECT z.id, z.name, z.city_id, c.name AS city_name
+     FROM zones z
+     LEFT JOIN cities c ON c.id = z.city_id`
   );
 
   if (!zones.length) {
@@ -173,9 +189,9 @@ async function runAllTriggers() {
   for (const zone of zones) {
     try {
       const [weatherResult, aqiResult, alertResult] = await Promise.allSettled([
-        checkWeatherTrigger(zone.id),
-        checkAqiTrigger(zone.id),
-        checkAlertTrigger(zone.id),
+        checkWeatherTrigger(zone),
+        checkAqiTrigger(zone),
+        checkAlertTrigger(zone),
       ]);
 
       if (weatherResult.status === 'fulfilled') {
