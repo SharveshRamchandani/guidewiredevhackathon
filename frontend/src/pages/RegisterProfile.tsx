@@ -81,7 +81,7 @@ const RegisterProfile = () => {
                 <div className="container flex h-14 items-center justify-between">
                     <Link to="/" className="flex items-center gap-2">
                         <Shield className="h-5 w-5 text-primary" />
-                        <span className="font-bold font-display">GigShield</span>
+                        <span className="font-bold font-display">Kintsu</span>
                     </Link>
                     <ThemeToggle />
                 </div>
@@ -178,7 +178,7 @@ const RegisterProfile = () => {
                                         <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                                     </HoverCardTrigger>
                                     <HoverCardContent className="text-sm">
-                                        Your weekly earnings help us calculate the right coverage amount for your GigShield plan.
+                                        Your weekly earnings help us calculate the right coverage amount for your Kintsu plan.
                                     </HoverCardContent>
                                 </HoverCard>
                             </div>

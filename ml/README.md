@@ -1,8 +1,14 @@
-# GigShield ML Service
+# Kintsu ML Service
 
-Internal AI/ML microservice for **GigShield** — a parametric insurance platform for food delivery gig workers in India (Swiggy, Zomato, Zepto, Blinkit). Built for **Guidewire DEVTrails 2026**.
+Submission note:
 
-Instead of workers filing manual claims, GigShield automatically detects environmental disruptions and triggers payouts. This service is the AI brain behind those decisions.
+- `/triggers/weather` supports live OpenWeatherMap calls when `OPENWEATHERMAP_API_KEY` is configured, and falls back to a deterministic demo feed when it is not.
+- `/triggers/aqi` supports live AQICN calls when `AQICN_API_KEY` is configured, and falls back to a deterministic demo feed when it is not.
+- `/triggers/mock-alerts` remains intentionally mocked for civic/platform disruption signals in this submission.
+
+Internal AI/ML microservice for **Kintsu** — a parametric insurance platform for food delivery gig workers in India (Swiggy, Zomato, Zepto, Blinkit). Built for **Guidewire DEVTrails 2026**.
+
+Instead of workers filing manual claims, Kintsu automatically detects environmental disruptions and triggers payouts. This service is the AI brain behind those decisions.
 
 No auth on any endpoint — this service is internal only.
 
@@ -23,9 +29,9 @@ No auth on any endpoint — this service is internal only.
 | `/ml/trigger` | POST | **Core engine**. Orchestrates all microservices: parses weather variables -> bounds probabilities -> calculates dynamic thresholds -> flags/clears fraud -> generates Llama 3 explanation -> returns fully modeled parametric approval struct. |
 | `/ml/heatmap` | GET | Composite multi-factor risk scores and IMD hazard data aggregated for 8 major Indian metro cities. |
 | `/ml/correlations` | GET | Returns static researched insights mapping specific environmental thresholds (e.g., AQI > 400) to actual historic gig-economy demand drop percentages. |
-| `/triggers/weather` | GET | Stubs for OpenWeatherMap integration. Returns threshold-breached booleans based on hardcoded dummy rules (Temp > 45C or Rain > 50mm). |
-| `/triggers/aqi` | GET | Stubs for AQICN api integration. Returns mocked AQI values mapping to > 300 hazard states. |
-| `/triggers/mock-alerts` | GET | Stubs for fetching unstructured municipal curfews, traffic bans, or worker strike data. |
+| `/triggers/weather` | GET | Live OpenWeatherMap integration when `OPENWEATHERMAP_API_KEY` is configured, with deterministic fallback when it is not. |
+| `/triggers/aqi` | GET | Live AQICN integration when `AQICN_API_KEY` is configured, with deterministic fallback when it is not. |
+| `/triggers/mock-alerts` | GET | Intentionally mocked civic/platform alert feed for curfews, traffic bans, and strike-like signals. |
 
 ---
 
@@ -98,6 +104,12 @@ AQICN_API_KEY=your-key
 GROQ_API_KEY=your-groq-key     # Get free at console.groq.com
 ```
 
+Integration notes:
+
+- If `OPENWEATHERMAP_API_KEY` is missing, `/triggers/weather` falls back to a deterministic city and season aware demo feed.
+- If `AQICN_API_KEY` is missing, `/triggers/aqi` falls back to a deterministic city and season aware demo feed.
+- `/triggers/mock-alerts` remains mocked in this submission by design.
+
 ### Data Generation & Training Workflow
 
 Before inference can run, the exact `.joblib` model binaries must be created. Run the modeling pipeline explicitly:
@@ -112,6 +124,8 @@ python models/train_risk.py
 # 3. Train the Isolation Forest (Outputs `saved/fraud_model.joblib`)
 python models/train_fraud.py
 ```
+
+The service now also attempts to regenerate missing saved artifacts automatically at startup, so missing model files no longer break local inference silently.
 
 ### Start the Server
 

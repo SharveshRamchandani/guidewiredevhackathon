@@ -90,7 +90,7 @@ def _llm_explanation(
         ),
     }.get(status, f"Decision: {status}")
 
-    prompt = f"""You are an insurance report writer for GigShield, a parametric insurance platform for gig delivery workers in India.
+    prompt = f"""You are an insurance report writer for Kintsu, a parametric insurance platform for gig delivery workers in India.
 
 Write a 3-4 sentence professional insurance report explaining this payout decision.
 

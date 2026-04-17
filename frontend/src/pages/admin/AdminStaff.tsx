@@ -108,7 +108,7 @@ const AdminStaff = () => {
 
     return (
         <>
-                <PageHeader title="Staff Management" description="Manage GigShield operations team members">
+                <PageHeader title="Staff Management" description="Manage Kintsu operations team members">
                     <Badge variant="secondary" className="text-sm">{activeCount} Active</Badge>
                     <Button onClick={() => navigate("/admin/staff/new")}>
                         <UserPlus className="h-4 w-4 mr-1" /> Add Staff Member
@@ -231,7 +231,7 @@ const AdminStaff = () => {
                         <AlertDialogHeader>
                             <AlertDialogTitle>Deactivate {deactivateTarget?.name}?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This staff member will lose access to the GigShield admin portal immediately.
+                                This staff member will lose access to the Kintsu admin portal immediately.
                                 You can reactivate their account at any time.
                             </AlertDialogDescription>
                         </AlertDialogHeader>

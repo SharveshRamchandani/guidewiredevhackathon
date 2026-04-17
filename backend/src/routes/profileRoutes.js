@@ -11,6 +11,7 @@ const { requireWorkerAuth } = require('../middleware/authMiddleware');
 
 // GET  /api/profile              → get own profile
 router.get(   '/',        requireWorkerAuth, profileController.getProfile);
+router.get(   '/resilience-snapshot', requireWorkerAuth, profileController.getResilienceSnapshot);
 
 // PATCH /api/profile             → update general details (name, city, etc.)
 router.patch( '/',        requireWorkerAuth, profileController.updateProfile);

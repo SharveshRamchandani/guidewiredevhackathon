@@ -40,7 +40,7 @@ function buildReply(message, context = {}) {
   }
 
   if (/\b(hi|hello|hey)\b/.test(normalized)) {
-    return `Hi. I can help with GigShield policies, claims, payouts, notifications, and risk events from ${page}.`;
+    return `Hi. I can help with Kintsu policies, claims, payouts, notifications, and risk events from ${page}.`;
   }
 
   if (/\b(policy|plan|premium|coverage)\b/.test(normalized)) {
@@ -60,7 +60,7 @@ function buildReply(message, context = {}) {
   }
 
   if (/\b(weather|aqi|risk|trigger|disruption|income)\b/.test(normalized)) {
-    return `GigShield uses environmental and disruption signals like weather, AQI, income shock, and trigger models. I can explain those signals, but I do not execute ML predictions directly from this chat endpoint.`;
+    return `Kintsu uses environmental and disruption signals like weather, AQI, income shock, and trigger models. I can explain those signals, but I do not execute ML predictions directly from this chat endpoint.`;
   }
 
   if (/\b(notification|alert|bell)\b/.test(normalized)) {
@@ -113,9 +113,9 @@ async function generateGroqReply(message, context = {}) {
   }
 
   const systemPrompt = [
-    'You are the GigShield in-app assistant.',
+    'You are the Kintsu in-app assistant.',
     'Answer in 2 to 4 concise sentences.',
-    'Focus on GigShield product guidance for policies, claims, payouts, onboarding, notifications, and risk signals.',
+    'Focus on Kintsu product guidance for policies, claims, payouts, onboarding, notifications, and risk signals.',
     'Do not invent account-specific data, claim statuses, payouts, or policy details you were not given.',
     'If the user asks for an action you cannot perform from chat, tell them which app section to use next.',
   ].join(' ');

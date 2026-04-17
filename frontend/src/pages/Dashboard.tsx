@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageHeader } from "@/components/PageHeader";
-import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye, Loader2 } from "lucide-react";
+import { CloudRain, Thermometer, Wind, AlertTriangle, IndianRupee, Shield, Eye, Loader2, Radar, ShieldCheck, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWeather } from '@/hooks/useWeather';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,16 +26,18 @@ const Dashboard = () => {
   const { token, worker } = useWorkerAuthStore();
   const [activePolicy, setActivePolicy] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [resilience, setResilience] = useState<any>(null);
   
   useEffect(() => {
     if (!token) return;
 
     const loadData = async () => {
       try {
-        const [profileRes, policiesRes, plansRes] = await Promise.all([
+        const [profileRes, policiesRes, plansRes, resilienceRes] = await Promise.all([
           workerApi.getProfile(token),
           workerApi.getMyPolicies(token),
-          workerApi.getPlans()
+          workerApi.getPlans(),
+          workerApi.getResilienceSnapshot(token).catch(() => ({ success: false, data: null })),
         ]);
         
         setProfile(profileRes.data);
@@ -63,6 +65,7 @@ const Dashboard = () => {
         }
         
         setActivePolicy(active);
+        setResilience(resilienceRes.data || null);
       } catch (err) {
         console.error("Dashboard data load error:", err);
       }
@@ -153,6 +156,81 @@ const Dashboard = () => {
                 ₹{Number(profile?.avg_weekly_earning || profile?.weekly_earnings || 0).toLocaleString("en-IN")}
               </p>
               <p className="text-sm text-muted-foreground mt-1">avg weekly earnings</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <Radar className="h-5 w-5 text-primary" /> Resilience Snapshot
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl border p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Readiness</p>
+                  <p className="mt-2 text-3xl font-bold font-display">{resilience?.readiness_score ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">automation confidence</p>
+                </div>
+                <div className="rounded-xl border p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Runway</p>
+                  <p className="mt-2 text-3xl font-bold font-display">
+                    {resilience?.coverage_runway_days != null ? `${resilience.coverage_runway_days}d` : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">income buffer from max cover</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="bg-primary/5 border-primary/20">
+                  Posture: {resilience?.payout_posture || "calculating"}
+                </Badge>
+                {resilience?.plan_name ? <Badge variant="secondary" className="capitalize">{resilience.plan_name}</Badge> : null}
+                {resilience?.zone_name ? <Badge variant="outline">{resilience.zone_name}</Badge> : null}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {resilience?.recommendation || "No resilience advisory available yet."}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" /> Weak Point Scanner
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(resilience?.weak_points?.length ?? 0) === 0 ? (
+                <div className="rounded-xl border border-success/30 bg-success/5 p-4">
+                  <div className="flex items-center gap-2 text-success">
+                    <ShieldCheck className="h-4 w-4" />
+                    <span className="font-medium">No immediate payout blockers detected</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Your account looks ready for automated disruption handling.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {resilience?.weak_points?.map((issue: string) => (
+                    <div key={issue} className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-sm">
+                      {issue}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-muted-foreground">Claims (30d)</p>
+                  <p className="text-xl font-semibold">{resilience?.recent_claims ?? 0}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-muted-foreground">Successful Payouts</p>
+                  <p className="text-xl font-semibold">{resilience?.recent_successful_payouts ?? 0}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

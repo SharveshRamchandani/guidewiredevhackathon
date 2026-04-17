@@ -24,7 +24,7 @@ const notificationService = require('../services/notificationService');
 eventBus.on('policy:upgraded', async ({ workerId, adminId, planName }) => {
   await notificationService.pushNotification(
     workerId, 'worker',
-    `Your GigShield plan${planName ? ` (${planName})` : ''} has been upgraded successfully.`,
+    `Your Kintsu plan${planName ? ` (${planName})` : ''} has been upgraded successfully.`,
     'success'
   );
   await notificationService.pushNotification(

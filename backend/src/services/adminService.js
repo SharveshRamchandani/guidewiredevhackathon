@@ -284,6 +284,84 @@ async function getAnalytics() {
   };
 }
 
+async function getExposureRadar() {
+  const { rows } = await query(
+    `SELECT
+        z.id,
+        z.name AS zone_name,
+        c.name AS city_name,
+        COUNT(DISTINCT w.id) FILTER (WHERE w.active = TRUE) AS active_workers,
+        COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'active') AS active_policies,
+        COUNT(DISTINCT cl.id) FILTER (WHERE cl.status = 'pending') AS pending_claims,
+        COUNT(DISTINCT cl.id) FILTER (WHERE cl.status = 'approved') AS approved_claims,
+        COUNT(DISTINCT de.id) FILTER (WHERE de.triggered_at > NOW() - INTERVAL '7 days') AS events_last_7d,
+        COALESCE(SUM(DISTINCT p.max_coverage) FILTER (WHERE p.status = 'active'), 0) AS insured_capital,
+        COALESCE(SUM(cl.amount) FILTER (WHERE cl.status IN ('pending', 'approved')), 0) AS live_claim_pressure
+     FROM zones z
+     LEFT JOIN cities c ON c.id = z.city_id
+     LEFT JOIN workers w ON w.zone_id = z.id
+     LEFT JOIN policies p ON p.worker_id = w.id
+     LEFT JOIN claims cl
+       ON cl.worker_id = w.id
+      AND cl.created_at > NOW() - INTERVAL '30 days'
+     LEFT JOIN disruption_events de ON de.zone_id = z.id
+     GROUP BY z.id, z.name, c.name
+     ORDER BY z.name ASC`
+  );
+
+  const rankedZones = rows
+    .map((zone) => {
+      const activeWorkers = Number(zone.active_workers || 0);
+      const activePolicies = Number(zone.active_policies || 0);
+      const pendingClaims = Number(zone.pending_claims || 0);
+      const approvedClaims = Number(zone.approved_claims || 0);
+      const eventsLast7d = Number(zone.events_last_7d || 0);
+      const insuredCapital = Number(zone.insured_capital || 0);
+      const liveClaimPressure = Number(zone.live_claim_pressure || 0);
+
+      const exposureScore = Math.round(
+        activePolicies * 8 +
+        pendingClaims * 14 +
+        approvedClaims * 6 +
+        eventsLast7d * 18 +
+        Math.min(insuredCapital / 500, 80)
+      );
+
+      const severityBand = exposureScore >= 140
+        ? 'surge'
+        : exposureScore >= 80
+          ? 'elevated'
+          : 'stable';
+
+      return {
+        zone_id: zone.id,
+        zone_name: zone.zone_name,
+        city_name: zone.city_name,
+        active_workers: activeWorkers,
+        active_policies: activePolicies,
+        pending_claims: pendingClaims,
+        approved_claims: approvedClaims,
+        events_last_7d: eventsLast7d,
+        insured_capital: insuredCapital,
+        live_claim_pressure: liveClaimPressure,
+        exposure_score: exposureScore,
+        severity_band: severityBand,
+        projected_auto_payout_load: Math.round((liveClaimPressure + insuredCapital * 0.12) * 100) / 100,
+      };
+    })
+    .sort((a, b) => b.exposure_score - a.exposure_score);
+
+  return {
+    generated_at: new Date().toISOString(),
+    top_zones: rankedZones.slice(0, 5),
+    platform_totals: {
+      monitored_zones: rankedZones.length,
+      zones_in_surge: rankedZones.filter((zone) => zone.severity_band === 'surge').length,
+      zones_elevated: rankedZones.filter((zone) => zone.severity_band === 'elevated').length,
+    },
+  };
+}
+
 // ─── System Config ────────────────────────────────────────────────────────────
 
 async function getSystemConfig() {
@@ -327,7 +405,7 @@ module.exports = {
   listWorkers, updateWorkerKyc,
   listAllPolicies, listAllClaims,
   listDisruptionEvents,
-  getAnalytics,
+  getAnalytics, getExposureRadar,
   getSystemConfig, updateSystemConfig,
   // RBA helpers (Scenario 4 + 5)
   flagWorkerAccount,

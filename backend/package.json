@@ -1,7 +1,7 @@
 {
-  "name": "gigshield-backend",
+  "name": "kintsu-backend",
   "version": "2.0.0",
-  "description": "GigShield – AI Powered Parametric Insurance – Layer 3 Backend",
+  "description": "Kintsu - AI Powered Parametric Insurance - Layer 3 Backend",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",

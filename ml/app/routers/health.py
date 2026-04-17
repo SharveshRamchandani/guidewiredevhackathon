@@ -4,4 +4,4 @@ router = APIRouter()
 
 @router.get("/health")
 def health_check():
-    return {"status": "ok", "service": "gigshield-ml"}
+    return {"status": "ok", "service": "kintsu-ml"}

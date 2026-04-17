@@ -88,7 +88,7 @@ export function WorkerLayout() {
         <div className="flex items-center gap-2 mb-6 px-2 pt-2 justify-between">
           <Link to="/dashboard" className="flex items-center gap-2 overflow-hidden">
             <Shield className="h-6 w-6 text-primary shrink-0" />
-            {!isCollapsed && <span className="font-bold font-display text-lg whitespace-nowrap">GigShield</span>}
+            {!isCollapsed && <span className="font-bold font-display text-lg whitespace-nowrap">Kintsu</span>}
           </Link>
           <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={toggleSidebarCollapse}>
             {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
