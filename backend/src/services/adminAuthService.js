@@ -79,7 +79,7 @@ async function createSuperAdmin() {
 
     const email = process.env.SUPER_ADMIN_EMAIL || 'superadmin@gigshield.in';
     const password = process.env.SUPER_ADMIN_PASSWORD || 'GigShield@SuperAdmin#2026';
-    const name = process.env.SUPER_ADMIN_NAME || 'GigShield Platform Owner';
+    const name = process.env.SUPER_ADMIN_NAME || 'Kintsu Platform Owner';
 
     const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
@@ -91,7 +91,7 @@ async function createSuperAdmin() {
 
     console.log(`
 ╔══════════════════════════════════════════╗
-║      GigShield Super Admin Created       ║
+║       Kintsu Super Admin Created         ║
 ╠══════════════════════════════════════════╣
 ║  Email:    ${email.padEnd(31)}║
 ║  Password: ${password.padEnd(31)}║

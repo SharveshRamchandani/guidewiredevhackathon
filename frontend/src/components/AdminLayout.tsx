@@ -103,7 +103,7 @@ export function AdminLayout() {
             <Shield className="h-6 w-6 text-primary shrink-0" />
             {!isCollapsed && (
               <>
-                <span className="font-bold font-display text-lg whitespace-nowrap">GigShield</span>
+                <span className="font-bold font-display text-lg whitespace-nowrap">Kintsu</span>
                 <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium ml-auto whitespace-nowrap">
                   {showSuperAdmin ? "Super" : "Admin"}
                 </span>

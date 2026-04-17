@@ -46,7 +46,7 @@ const RegisterKyc = () => {
                 <div className="container flex h-14 items-center justify-between">
                     <Link to="/" className="flex items-center gap-2">
                         <Shield className="h-5 w-5 text-primary" />
-                        <span className="font-bold font-display">GigShield</span>
+                        <span className="font-bold font-display">Kintsu</span>
                     </Link>
                     <ThemeToggle />
                 </div>
@@ -96,7 +96,7 @@ const RegisterKyc = () => {
                             />
                             <Label htmlFor="kyc-consent" className="text-sm leading-relaxed cursor-pointer">
                                 I consent to Aadhaar-based KYC verification as per{" "}
-                                <a href="#" className="text-primary underline">GigShield's terms</a> and{" "}
+                                <a href="#" className="text-primary underline">Kintsu's terms</a> and{" "}
                                 <a href="#" className="text-primary underline">IRDAI guidelines</a>.
                                 My data will be used only for identity verification and insurance processing.
                             </Label>

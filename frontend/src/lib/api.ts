@@ -112,6 +112,9 @@ export const workerApi = {
     getProfile: (token: string) =>
         apiFetch<{ success: boolean; data: Record<string, unknown> }>('/api/profile', {}, token),
 
+    getResilienceSnapshot: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>('/api/profile/resilience-snapshot', {}, token),
+
     updateProfile: (
         token: string,
         data: { name?: string; city?: string; platform?: string; avg_weekly_earning?: number }
@@ -189,6 +192,11 @@ export const adminDataApi = {
     getAnalytics: (token: string) =>
         apiFetch<{ success: boolean; data: Record<string, unknown> }>(
             '/api/admin/analytics', {}, token
+        ),
+
+    getExposureRadar: (token: string) =>
+        apiFetch<{ success: boolean; data: Record<string, unknown> }>(
+            '/api/admin/exposure-radar', {}, token
         ),
 
     approveClaim: (id: string, token: string) =>

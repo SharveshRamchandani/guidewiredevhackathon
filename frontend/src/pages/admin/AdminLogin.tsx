@@ -88,9 +88,9 @@ const AdminLogin = () => {
           <div className="flex justify-center mb-2">
             <Shield className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="font-display text-2xl">GigShield Staff Portal</CardTitle>
+          <CardTitle className="font-display text-2xl">Kintsu Staff Portal</CardTitle>
           <CardDescription>
-            For GigShield operations team only. Workers please use the{" "}
+            For Kintsu operations team only. Workers please use the{" "}
             <a href="/" className="text-primary hover:underline">main app</a>.
           </CardDescription>
         </CardHeader>
@@ -188,7 +188,7 @@ const AdminLogin = () => {
           </form>
 
           <p className="text-center text-xs text-muted-foreground mt-6">
-            This portal is for GigShield operations staff only.
+            This portal is for Kintsu operations staff only.
             <br />
             If you are a delivery partner,{" "}
             <a href="/" className="text-primary hover:underline">

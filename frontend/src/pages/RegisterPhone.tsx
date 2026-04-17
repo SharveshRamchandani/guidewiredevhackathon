@@ -110,7 +110,7 @@ const RegisterPhone = () => {
                 <div className="container flex h-14 items-center justify-between">
                     <Link to="/" className="flex items-center gap-2">
                         <Shield className="h-5 w-5 text-primary" />
-                        <span className="font-bold font-display">GigShield</span>
+                        <span className="font-bold font-display">Kintsu</span>
                     </Link>
                     <ThemeToggle />
                 </div>

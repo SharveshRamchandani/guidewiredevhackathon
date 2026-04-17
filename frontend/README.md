@@ -1,6 +1,6 @@
-# GigShield Frontend
+# Kintsu Frontend
 
-Worker and admin React frontend for GigShield, a parametric income-protection platform for delivery gig workers.
+Worker and admin React frontend for Kintsu, a parametric income-protection platform for delivery gig workers.
 
 ## Stack
 

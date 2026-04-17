@@ -64,7 +64,7 @@ const mockWorkerNotifications: Notification[] = [
   },
   {
     id: "w-4",
-    message: "Warning: Premium deduction failed. Please top-up your wallet to maintain active GigShield coverage.",
+    message: "Warning: Premium deduction failed. Please top-up your wallet to maintain active Kintsu coverage.",
     timestamp: "5 days ago",
     isRead: true,
     isFavorite: false,
@@ -202,7 +202,7 @@ export default function NotificationsPage() {
       <div className="flex items-center justify-between mb-6">
         <PageHeader 
           title={`${currentRoleName} Notifications`} 
-          description={isDemoMode ? "Currently showing example notifications. Trigger an action to see live updates." : "Real-time updates from GigShield platform."}
+          description={isDemoMode ? "Currently showing example notifications. Trigger an action to see live updates." : "Real-time updates from Kintsu platform."}
         />
         {isDemoMode && (
           <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none px-2 py-1">

@@ -41,7 +41,7 @@ export function ExpandableChatDemo() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 1,
-      content: "Hi. Ask me about policies, claims, payouts, onboarding, or risk signals in GigShield.",
+      content: "Hi. Ask me about policies, claims, payouts, onboarding, or risk signals in Kintsu.",
       sender: "ai",
     },
   ])

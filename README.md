@@ -44,13 +44,20 @@ Kintsu is organized as a multi-service monorepo:
 
 The codebase is clearly hackathon-driven but it is more than a landing page demo. It includes role-based auth, background jobs, data seeding, admin staff management, mock payments, in-app notifications, and an internal support assistant.
 
+Two standout review-facing features added on top of the core flows are:
+
+- **Resilience Snapshot** on the worker dashboard: a live protection-readiness layer that computes payout posture, coverage runway, and blockers such as pending KYC, missing payout setup, or active UPI Risk Lock.
+- **Exposure Radar** on the admin dashboard: a zone-level operations view that estimates where the next disruption would create the highest claim and payout surge across the portfolio.
+
 ## Core Capabilities
 
 - Worker OTP onboarding and profile completion.
 - Plan discovery, quote generation, and policy purchase/renewal APIs.
 - Worker dashboard with policy, earnings, claims, payouts, and weather risk context.
+- Worker-side **Resilience Snapshot** with readiness score, coverage runway, payout posture, and weak-point detection.
 - UPI Risk Lock on worker profile updates: if the payout UPI changes near approved claims or in-flight payouts, payouts are paused for a configurable cooldown window and both worker/admin notifications are generated.
 - Admin dashboard with KPIs, claim queues, policy and worker management, analytics, and configuration.
+- Admin-side **Exposure Radar** that ranks zones by projected claim and payout pressure.
 - Super admin controls for staff provisioning, activation/deactivation, platform stats, and audit log access.
 - Internal ML service for:
   - worker risk scoring
@@ -196,7 +203,9 @@ Redis
 ### 3. Trigger and claims flow
 
 - The backend cron job loads active system config and all zones.
-- For each zone, the backend calls ML trigger stubs for weather, AQI, and alerts.
+- For each zone, the backend calls ML trigger feeds for weather, AQI, and civic/platform alerts.
+- Weather and AQI can run in live-provider mode when API keys are configured, but safely fall back to deterministic feeds for demo reliability.
+- Civic/platform alerts remain intentionally mocked in the current submission.
 - If a threshold is breached, a disruption event is inserted.
 - Active policies for affected workers are identified.
 - Claims are auto-initiated and fraud-scored.
@@ -225,6 +234,19 @@ Redis
 - If risk is high, payouts are locked for `UPI_RISK_LOCK_HOURS` (default 24 hours).
 - Lock state is derived from existing `audit_logs` entries (`profile_upi_change` and `profile_upi_risk_lock`), so this feature does **not** require a DB schema change.
 - The Profile page shows a **UPI Risk Lock Active** banner with unlock time, risk score, reason, and previous UPI.
+
+### 6. Protection intelligence layer
+
+- The worker dashboard exposes a **Resilience Snapshot** that converts account state into a simple protection-readiness score.
+- It combines active policy presence, KYC, payout UPI state, UPI lock status, coverage amount, and recent payout history.
+- It also estimates **coverage runway**: how many days of earnings a max payout could replace.
+- A **Weak Point Scanner** calls out exact blockers before a real disruption happens.
+
+### 7. Portfolio exposure intelligence
+
+- The admin dashboard exposes an **Exposure Radar** that ranks zones by operational blast radius.
+- It combines active workers, active policies, pending claims, recent events, insured capital, and live claim pressure.
+- The result is a control-tower view of where the next parametric event would stress the system most.
 
 ### 6. Admin and super admin operations
 
@@ -328,6 +350,12 @@ The FastAPI app in `ml/main.py` registers routers for:
 
 The ML service is internal-only in current design. No auth layer is implemented on these endpoints.
 
+Integration status for final submission:
+
+- `/triggers/weather`: supports live OpenWeatherMap calls when `OPENWEATHERMAP_API_KEY` is configured, otherwise deterministic fallback is used.
+- `/triggers/aqi`: supports live AQICN calls when `AQICN_API_KEY` is configured, otherwise deterministic fallback is used.
+- `/triggers/mock-alerts`: still intentionally mocked for civic/platform disruption signals.
+
 ## Database And Data Model
 
 The baseline schema lives in `db/schema.sql`. Key tables include:
@@ -416,6 +444,11 @@ AQICN_API_KEY=your-key-or-mock
 GROQ_API_KEY=your-groq-key
 ```
 
+Notes:
+
+- If `OPENWEATHERMAP_API_KEY` or `AQICN_API_KEY` are omitted, the ML service still works using deterministic fallback feeds.
+- The current submission keeps civic/platform alerts mocked by design.
+
 ## Local Development Setup
 
 ### Prerequisites
@@ -489,6 +522,8 @@ python models/generate_data.py
 python models/train_risk.py
 python models/train_fraud.py
 ```
+
+The ML service also attempts to bootstrap missing saved model artifacts on startup, so local inference can recover from missing `.joblib` files automatically.
 
 ## Running The Project
 
@@ -636,6 +671,7 @@ Worker-side highlights:
 - landing page with product explanation and CTA flow
 - multi-step registration funnel
 - dashboard with active policy summary and weather widget
+- worker-side **Resilience Snapshot** and **Weak Point Scanner**
 - policy and plans pages
 - claims and payouts tracking
 - profile management with **UPI Payout Security** controls and a visible **UPI Risk Lock** status banner
@@ -644,6 +680,7 @@ Worker-side highlights:
 Admin-side highlights:
 
 - operational KPI dashboard
+- **Exposure Radar** for zone-level surge and payout pressure forecasting
 - claims management with review modal and fraud scoring visualization
 - worker and policy management
 - events, analytics, cron/config, and fraud pages
@@ -677,6 +714,12 @@ Primary ML folders:
 - `ml/app/services/`: inference and external-integration logic
 - `ml/models/`: data generation and training scripts
 - `ml/models/saved/`: persisted model artifacts
+
+Current external-data posture:
+
+- weather: live-capable with fallback
+- AQI: live-capable with fallback
+- civic/platform alerts: mocked
 
 ## Caching, Queues, And Notifications
 

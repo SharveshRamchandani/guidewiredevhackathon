@@ -1,4 +1,4 @@
-# GigShield — Layer 3 Backend
+# Kintsu — Layer 3 Backend
 
 AI-Powered Parametric Insurance for Food Delivery Gig Workers (India)  
 **Node.js · Express · PostgreSQL · Redis · JWT · node-cron**  

@@ -71,6 +71,7 @@ router.get('/events', ctrl.getEvents);
 
 // Analytics
 router.get('/analytics', ctrl.getAnalytics);
+router.get('/exposure-radar', ctrl.getExposureRadar);
 
 // System config (trigger engine toggle)
 router.get('/config', ctrl.getConfig);

@@ -1,9 +1,10 @@
 from typing import Optional
 from fastapi import FastAPI
 from app.routers import health, risk, fraud, disruption, income, vulnerability, premium, trigger
+from app.services.model_bootstrap import ensure_model_artifacts
 
 app = FastAPI(
-    title="GigShield ML Service",
+    title="Kintsu ML Service",
     description=(
         "AI-powered ML microservice for GigShield — parametric insurance for gig workers. "
         "Covers risk scoring, fraud detection, disruption detection, income loss prediction, "
@@ -11,6 +12,16 @@ app = FastAPI(
     ),
     version="2.0.0",
 )
+
+
+@app.on_event("startup")
+def bootstrap_models() -> None:
+    missing_after_bootstrap = ensure_model_artifacts()
+    if missing_after_bootstrap:
+        print(
+            "[ML Bootstrap] Service is running with heuristic fallbacks because some "
+            f"artifacts are still missing: {', '.join(missing_after_bootstrap)}"
+        )
 
 # ── Core ML endpoints ─────────────────────────────────────────────────
 app.include_router(health.router)

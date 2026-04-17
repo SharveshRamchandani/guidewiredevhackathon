@@ -210,8 +210,113 @@ async function getProfile(req, res, next) {
   }
 }
 
+async function getResilienceSnapshot(req, res, next) {
+  try {
+    const workerId = req.worker.id;
+    const { rows } = await query(
+      `SELECT
+          w.id,
+          w.name,
+          w.avg_weekly_earning,
+          w.is_kyc_verified,
+          w.upi_id,
+          w.active,
+          z.name AS zone_name,
+          p.id AS policy_id,
+          p.status AS policy_status,
+          p.end_date,
+          p.max_coverage,
+          pl.name AS plan_name,
+          COALESCE((
+            SELECT COUNT(*) FROM claims c
+            WHERE c.worker_id = w.id
+              AND c.created_at > NOW() - INTERVAL '30 days'
+          ), 0) AS recent_claims,
+          COALESCE((
+            SELECT COUNT(*) FROM payouts po
+            WHERE po.worker_id = w.id
+              AND po.status = 'completed'
+              AND po.completed_at > NOW() - INTERVAL '90 days'
+          ), 0) AS recent_successful_payouts
+       FROM workers w
+       LEFT JOIN zones z ON z.id = w.zone_id
+       LEFT JOIN policies p
+         ON p.worker_id = w.id
+        AND p.status = 'active'
+       LEFT JOIN plans pl ON pl.id = p.plan_id
+       WHERE w.id = $1
+       ORDER BY p.created_at DESC NULLS LAST
+       LIMIT 1`,
+      [workerId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ success: false, error: 'Worker not found.' });
+    }
+
+    const worker = rows[0];
+    const upiLock = await getUpiLockState(workerId);
+    const weeklyEarnings = Number(worker.avg_weekly_earning || 0);
+    const dailyIncome = weeklyEarnings > 0 ? weeklyEarnings / 7 : 0;
+    const maxCoverage = Number(worker.max_coverage || 0);
+    const runwayDays = dailyIncome > 0 ? maxCoverage / dailyIncome : 0;
+    const readinessSignals = [
+      worker.active ? 25 : 0,
+      worker.policy_id ? 30 : 0,
+      worker.is_kyc_verified ? 20 : 0,
+      worker.upi_id ? 15 : 0,
+      upiLock.isLocked ? 0 : 10,
+    ];
+    const readinessScore = Math.max(0, Math.min(100, readinessSignals.reduce((sum, value) => sum + value, 0)));
+
+    const weakPoints = [];
+    if (!worker.policy_id) weakPoints.push('No active policy linked');
+    if (!worker.is_kyc_verified) weakPoints.push('KYC still pending');
+    if (!worker.upi_id) weakPoints.push('No payout UPI configured');
+    if (upiLock.isLocked) weakPoints.push('UPI Risk Lock is pausing payouts');
+    if (weeklyEarnings <= 0) weakPoints.push('Weekly earnings not set, so impact estimates are conservative');
+
+    const payoutPosture = upiLock.isLocked
+      ? 'guarded'
+      : worker.recent_successful_payouts > 0
+        ? 'primed'
+        : 'ready';
+
+    const recommendation = !worker.policy_id
+      ? 'Activate a plan to unlock automatic disruption protection.'
+      : upiLock.isLocked
+        ? 'Wait for the UPI verification window to end before expecting automated payouts.'
+        : !worker.is_kyc_verified
+          ? 'Complete KYC to maximize payout confidence during peak event periods.'
+          : 'Your account is configured for fast automated response if a disruption hits.';
+
+    return res.json({
+      success: true,
+      data: {
+        readiness_score: readinessScore,
+        payout_posture: payoutPosture,
+        plan_name: worker.plan_name || null,
+        zone_name: worker.zone_name || null,
+        active_policy: Boolean(worker.policy_id),
+        policy_end_date: worker.end_date || null,
+        weekly_earnings: weeklyEarnings,
+        max_coverage: maxCoverage,
+        coverage_runway_days: Number(runwayDays.toFixed(1)),
+        recent_claims: Number(worker.recent_claims || 0),
+        recent_successful_payouts: Number(worker.recent_successful_payouts || 0),
+        weak_points: weakPoints,
+        recommendation,
+        upi_lock: upiLock,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getProfile,
+  getResilienceSnapshot,
   updateProfile,
   updateBankDetails,
   updateContactDetails,

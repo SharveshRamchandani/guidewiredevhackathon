@@ -21,9 +21,9 @@ const stats = [
 ];
 
 const testimonials = [
-  { name: "Ramesh K.", platform: "Swiggy", city: "Mumbai", quote: "GigShield paid me ₹400 when heavy rain stopped all deliveries. I didn't even have to file a claim!", initials: "RK" },
+  { name: "Ramesh K.", platform: "Swiggy", city: "Mumbai", quote: "Kintsu paid me ₹400 when heavy rain stopped all deliveries. I didn't even have to file a claim!", initials: "RK" },
   { name: "Priya S.", platform: "Zomato", city: "Delhi", quote: "The weekly premium is so small I barely notice it. But the payouts during bad AQI days saved my week.", initials: "PS" },
-  { name: "Arjun M.", platform: "Amazon", city: "Bangalore", quote: "When Zepto had an outage, I thought I'd lose half my day's earnings. GigShield covered me automatically.", initials: "AM" },
+  { name: "Arjun M.", platform: "Amazon", city: "Bangalore", quote: "When Zepto had an outage, I thought I'd lose half my day's earnings. Kintsu covered me automatically.", initials: "AM" },
 ];
 
 const Landing = () => {
@@ -35,7 +35,7 @@ const Landing = () => {
           <div className="container flex h-full items-center justify-between">
             <div className="flex items-center gap-2">
               <Shield className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold font-display">GigShield</span>
+              <span className="text-xl font-bold font-display">Kintsu</span>
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
@@ -169,7 +169,7 @@ const Landing = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              <span className="font-semibold font-display">GigShield</span>
+              <span className="font-semibold font-display">Kintsu</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="#" className="hover:text-foreground transition-colors">About</a>
@@ -179,7 +179,7 @@ const Landing = () => {
               <a href="#" className="hover:text-foreground transition-colors">Contact</a>
             </div>
             <div className="flex items-center gap-4">
-              <p className="text-xs text-muted-foreground">© 2026 GigShield. All rights reserved.</p>
+              <p className="text-xs text-muted-foreground">© 2026 Kintsu. All rights reserved.</p>
               <Link to="/admin/login">
                 <Button variant="link" size="sm" className="text-muted-foreground text-xs h-auto p-0">
                   Staff Login

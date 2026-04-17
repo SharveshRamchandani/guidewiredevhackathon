@@ -61,7 +61,7 @@ const AdminSetup = () => {
                     <CardContent>
                         <Alert variant="destructive">
                             <AlertDescription>
-                                This setup link is invalid or has expired. Please contact your GigShield administrator to resend the setup email.
+                                This setup link is invalid or has expired. Please contact your Kintsu administrator to resend the setup email.
                             </AlertDescription>
                         </Alert>
                     </CardContent>
@@ -120,7 +120,7 @@ const AdminSetup = () => {
                     </div>
                     <CardTitle className="font-display text-2xl">Complete Account Setup</CardTitle>
                     <CardDescription>
-                        Create a strong password to secure your GigShield admin account
+                        Create a strong password to secure your Kintsu admin account
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

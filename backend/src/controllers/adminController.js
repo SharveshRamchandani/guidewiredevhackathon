@@ -71,6 +71,11 @@ async function getAnalytics(req, res, next) {
   catch (e) { err(next, e); }
 }
 
+async function getExposureRadar(req, res, next) {
+  try { ok(res, await adminService.getExposureRadar()); }
+  catch (e) { err(next, e); }
+}
+
 // System config
 async function getConfig(req, res, next) {
   try { ok(res, await adminService.getSystemConfig()); }
@@ -136,6 +141,7 @@ module.exports = {
   getWorkers, updateKyc,
   getPolicies, getClaims, approveClaim, rejectClaim,
   getEvents, getAnalytics, getConfig, updateConfig,
+  getExposureRadar,
   // Scenario 4 RBA triggers
   flagWorker, startFraudReview, acceptFraudReview, rejectFraudReview,
 };

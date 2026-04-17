@@ -69,7 +69,7 @@ router.post('/process', asyncHandler(async (req, res) => {
         plan_id,
         plan_name: plan_name || 'Plan',
         paid_at: new Date().toISOString(),
-        message: `Payment of ₹${amount} to GigShield completed successfully via ${upi_id}.`
+        message: `Payment of ₹${amount} to Kintsu completed successfully via ${upi_id}.`
     });
 }));
 

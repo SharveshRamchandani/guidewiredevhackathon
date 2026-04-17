@@ -88,7 +88,7 @@ const AdminCreateStaff = () => {
         <>
                 <PageHeader
                     title="Add Staff Member"
-                    description="Create a new GigShield operations team account"
+                    description="Create a new Kintsu operations team account"
                 />
 
                 <div className="max-w-lg">

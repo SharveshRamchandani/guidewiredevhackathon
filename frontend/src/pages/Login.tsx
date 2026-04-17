@@ -118,7 +118,7 @@ const Login = () => {
             <Shield className="h-10 w-10 text-primary" />
           </div>
           <CardTitle className="font-display text-2xl">Welcome back</CardTitle>
-          <CardDescription>Login to your GigShield account</CardDescription>
+          <CardDescription>Login to your Kintsu account</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (

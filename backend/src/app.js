@@ -66,7 +66,7 @@ app.use(globalLimiter);
 
 // ─── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', (_, res) =>
-  res.json({ status: 'ok', service: 'GigShield API', ts: new Date().toISOString() })
+  res.json({ status: 'ok', service: 'Kintsu API', ts: new Date().toISOString() })
 );
 
 // ─── Routes ────────────────────────────────────────────────────────────────────

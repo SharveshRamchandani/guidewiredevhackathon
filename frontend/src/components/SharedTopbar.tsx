@@ -35,7 +35,7 @@ export interface SharedTopbarProps {
 export function SharedTopbar({
 
   brandLink,
-  brandTitle = "GigShield",
+  brandTitle = "Kintsu",
   showSuperAdminBadge,
   showSearch,
   searchValue,
