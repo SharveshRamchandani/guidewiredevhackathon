@@ -50,9 +50,9 @@
   }
 
   .dark {
-       --background: 20 14.3% 4.1%;
+    --background: 20 14.3% 10%;
     --foreground: 0 0% 95%;
-    --card: 24 9.8% 10%;
+    --card: 24 9.8% 15%;
     --card-foreground: 0 0% 95%;
     --popover: 0 0% 9%;
     --popover-foreground: 0 0% 95%;
@@ -82,7 +82,7 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
 
-    --sidebar-background: 24 9.8% 10%;
+    --sidebar-background: 24 9.8% 15%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 346.8 77.2% 49.8%;
     --sidebar-primary-foreground: 355.7 100% 97.3%;
